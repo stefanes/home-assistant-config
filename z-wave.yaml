@@ -1,0 +1,367 @@
+template:
+  - binary_sensor:
+      - name: Z-Wave addon up and running
+        state: >
+          {{ is_state('binary_sensor.z_wave_js_ui_running', 'on')
+            and states('sensor.alive_z_wave_devices') | int(0) > 0 }}
+        delay_on: 0:05:00 # turn on after 5 minutes to allow time for loading nodes
+        icon: mdi:z-wave
+        device_class: running
+        unique_id: z_wave_addon_up_and_running
+
+  - trigger:
+      - platform: time_pattern
+        seconds: "/10"
+    sensor:
+      - name: Dead Z-Wave devices
+        icon: mdi:z-wave
+        state: >
+          {% if this.attributes.entity_id != none %}
+            {{ this.attributes.entity_id | count }}
+          {% else %}
+            {# No dead devices identified #}
+            0
+          {% endif %}
+        unit_of_measurement: entities
+        unique_id: dead_z_wave_devices
+        attributes:
+          entity_id: >-
+            {% set nodes = integration_entities('zwave_js') | select('match', 'sensor\..*node_status') | select('is_state', ['dead', 'unavailable', 'unknown']) | list %}
+            {% set ns = namespace(buttons=[]) %}
+            {% for e in nodes %}
+              {% set device_id = device_id(e) %}
+              {% set button = device_entities(device_id) | select('match','button\..*_ping') | first %}
+              {% set ns.buttons = ns.buttons + [button] %}
+            {% endfor %}
+            {{ ns.buttons }}
+
+      - name: Alive Z-Wave devices
+        icon: mdi:z-wave
+        state: >
+          {% if this.attributes.entity_id != none %}
+            {{ this.attributes.entity_id | count }}
+          {% else %}
+            {# No alive devices identified #}
+            0
+          {% endif %}
+        unit_of_measurement: entities
+        unique_id: alive_z_wave_devices
+        attributes:
+          entity_id: >-
+            {% set nodes = integration_entities('zwave_js') | select('match', 'sensor\..*node_status') | select('is_state', ['alive']) | list %}
+            {{ nodes }}
+
+input_boolean:
+  enable_z_wave_problem_detection:
+    name: Enable Z-Wave problem detection
+    initial: true
+    icon: mdi:z-wave
+
+script:
+  turn_on_zwave_switch_group:
+    alias: Turn on switch group (Z-Wave multicast)
+    icon: mdi:z-wave
+    description: Expand and turn on a group of switches
+    fields:
+      group:
+        name: Group
+        description: Switch group to turn on.
+        required: true
+        example: "switch.outdoor_lights"
+        selector:
+          text:
+    variables:
+      entities: >
+        {{ expand(group)
+          | selectattr('domain', 'eq', 'switch')
+          | selectattr('state', 'eq', 'off')
+          | map(attribute='entity_id') | list }}
+    sequence:
+      - condition: template
+        value_template: >
+          {{ entities | count > 0 }}
+      - service: zwave_js.multicast_set_value
+        data:
+          command_class: 37
+          endpoint: 0
+          property: targetValue
+          value: true
+        target:
+          entity_id: >
+            {{ entities }}
+        continue_on_error: true
+    mode: parallel
+
+  turn_off_zwave_switch_group:
+    alias: Turn off switch group (Z-Wave multicast)
+    icon: mdi:z-wave
+    description: Expand and turn off a group of switches
+    fields:
+      group:
+        name: Group
+        description: Switch group to turn off.
+        required: true
+        example: "switch.outdoor_lights"
+        selector:
+          text:
+    variables:
+      entities: >
+        {{ expand(group)
+          | selectattr('domain', 'eq', 'switch')
+          | selectattr('state', 'eq', 'on')
+          | map(attribute='entity_id') | list }}
+    sequence:
+      - condition: template
+        value_template: >
+          {{ entities | count > 0 }}
+      - service: zwave_js.multicast_set_value
+        data:
+          command_class: 37
+          endpoint: 0
+          property: targetValue
+          value: false
+        target:
+          entity_id: >
+            {{ entities }}
+        continue_on_error: true
+    mode: parallel
+
+  turn_on_zwave_light_group:
+    alias: Turn on light group (Z-Wave multicast)
+    icon: mdi:z-wave
+    description: Expand and turn on a group of lights using Z-Wave multicast
+    fields:
+      group:
+        name: Group
+        description: Light group to turn on.
+        required: true
+        example: "light.hallway_lights"
+        selector:
+          text:
+      brightness:
+        name: Brightness
+        description: Percentage of full brightness.
+        example: "1"
+        default: 99
+        selector:
+          number:
+            min: 0
+            max: 99
+    variables:
+      entities: >
+        {{ expand(group)
+          | selectattr('domain', 'eq', 'light')
+          | map(attribute='entity_id') | list }}
+    sequence:
+      - condition: template
+        value_template: >
+          {{ entities | count > 0 }}
+      - service: zwave_js.multicast_set_value
+        data:
+          command_class: 38
+          endpoint: 1
+          property: targetValue
+          value: >
+            {{ brightness | default(99) }}
+        target:
+          entity_id: >
+            {{ entities }}
+        continue_on_error: true
+    mode: parallel
+
+  turn_off_zwave_light_group:
+    alias: Turn off light group (Z-Wave multicast)
+    icon: mdi:z-wave
+    description: Expand and turn off a group of lights using Z-Wave multicast
+    fields:
+      group:
+        name: Group
+        description: Light group to turn off.
+        required: true
+        example: "light.hallway_lights"
+        selector:
+          text:
+    variables:
+      entities: >
+        {{ expand(group)
+          | selectattr('domain', 'eq', 'light')
+          | selectattr('state', 'eq', 'on')
+          | map(attribute='entity_id') | list }}
+    sequence:
+      - condition: template
+        value_template: >
+          {{ entities | count > 0 }}
+      - service: zwave_js.multicast_set_value
+        data:
+          command_class: 38
+          endpoint: 1
+          property: targetValue
+          value: 0
+        target:
+          entity_id: >
+            {{ entities }}
+        continue_on_error: true
+    mode: parallel
+
+  ping_all_z_wave_devices:
+    alias: Ping all Z-Wave devices
+    icon: mdi:z-wave
+    description: Ping all Z-Wave devices in the network
+    sequence:
+      - condition: template
+        value_template: >
+          {{ integration_entities('zwave_js') | select('match', 'button\..*_ping') | list | count > 0 }}
+      - service: button.press
+        target:
+          entity_id: >
+            {{ integration_entities('zwave_js') | select('match', 'button\..*_ping') | list }}
+    mode: queued
+
+  trigger_all_z_wave_automations:
+    alias: Trigger all Z-Wave automations
+    icon: mdi:z-wave
+    description: Trigger all automations involving Z-Wave devices
+    sequence:
+      - service: automation.trigger
+        data:
+          skip_condition: false
+        target:
+          # List of Z-Wave automation to trigger when coming back from an error
+          entity_id:
+            - automation.hallway_lights
+            - automation.outdoor_lights
+            - ...
+    mode: queued
+
+automation:
+  - id: ping_dead_z_wave_devices
+    alias: Ping dead Z-Wave devices
+    description: ""
+    trigger:
+      - platform: state
+        entity_id: sensor.dead_z_wave_devices
+        for:
+          seconds: 10
+      - platform: state
+        entity_id: binary_sensor.z_wave_addon_up_and_running
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: input_boolean.enable_z_wave_problem_detection
+        state: "on"
+      - condition: state
+        entity_id: binary_sensor.z_wave_addon_up_and_running
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ states('sensor.dead_z_wave_devices') | int(0) > 0 }}
+    action:
+      - repeat:
+          until:
+            - condition: numeric_state
+              entity_id: sensor.dead_z_wave_devices
+              below: 1
+          sequence:
+            - service: button.press
+              target:
+                entity_id: "{{ state_attr('sensor.dead_z_wave_devices', 'entity_id') }}"
+            # cool down period to avoid flooding network
+            - delay:
+                seconds: 30
+    mode: restart
+    trace:
+      stored_traces: 20
+
+  - id: dead_z_wave_device_back
+    alias: Z-Wave devices back from the dead
+    description: ""
+    trigger:
+      - platform: state
+        entity_id: sensor.dead_z_wave_devices
+    condition:
+      - condition: state
+        entity_id: input_boolean.enable_z_wave_problem_detection
+        state: "on"
+      - condition: state
+        entity_id: binary_sensor.z_wave_addon_up_and_running
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ trigger.from_state.state | int(0) > trigger.to_state.state | int(0) }}
+    action:
+      - service: script.trigger_all_z_wave_automations
+    mode: restart
+    trace:
+      stored_traces: 20
+
+  - id: z_wave_error_detected
+    alias: Z-Wave error detected
+    description: ""
+    trigger:
+      - platform: event
+        event_type: system_log_event
+        event_data:
+          level: ERROR
+    condition:
+      - condition: state
+        entity_id: input_boolean.enable_z_wave_problem_detection
+        state: "on"
+      - condition: or
+        conditions:
+          - condition: template
+            value_template: >
+              {{ 'zwave_js_server.exceptions.Failed' in trigger.event.data.exception }}
+          - condition: template
+            value_template: >
+              {{ 'Unable to set value via multicast' in (trigger.event.data.message | join('|')) }}
+      - condition: not
+        conditions:
+          - condition: template
+            value_template: >
+              {{ 'Task exception was never retrieved' in (trigger.event.data.message | join('|')) }}
+          - condition: template
+            value_template: >
+              {{ 'While executing automation' in (trigger.event.data.message | join('|')) }}
+    action:
+      # cool down period if there are multiple, related, errors in log
+      - delay:
+          seconds: 30
+      - service: script.trigger_all_z_wave_automations
+    mode: restart
+    trace:
+      stored_traces: 20
+
+  - id: z_wave_addon_restart
+    alias: Z-Wave addon restart
+    description: ""
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.alive_z_wave_devices
+        below: 1
+        for:
+          minutes: 10
+    condition:
+      - condition: state
+        entity_id: input_boolean.enable_z_wave_problem_detection
+        state: "on"
+    action:
+      - service: hassio.addon_restart
+        data:
+          addon: a0d7b954_zwavejs2mqtt
+    mode: single
+
+  - id: z_wave_addon_startup
+    alias: Z-Wave addon startup
+    description: ""
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.z_wave_addon_up_and_running
+        to: "on"
+        from: "off"
+    condition:
+      - condition: state
+        entity_id: input_boolean.enable_z_wave_problem_detection
+        state: "on"
+    action:
+      - service: script.trigger_all_z_wave_automations
+    mode: single
