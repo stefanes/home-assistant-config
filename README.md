@@ -1,5 +1,15 @@
 # Home Assistant config
 
-Availabel Home Assistant configuration snippets:
+Available Home Assistant configuration snippets:
 
-- `z-wave.yaml` - package for handling Z-Wave devices, including catching and coming back from various errors.
+- `packages/z-wave.yaml` - package for handling Z-Wave devices, including catching and coming back from various errors.
+
+## Packages
+
+My configuration is mostly split into [packages](https://www.home-assistant.io/docs/configuration/packages/), in `configuration.yaml`:
+
+```yaml
+homeassistant:
+  ...
+  packages: !include_dir_named packages
+```
