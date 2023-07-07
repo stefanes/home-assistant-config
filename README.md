@@ -9,7 +9,7 @@ Available Home Assistant configuration snippets:
 
 ## Packages
 
-My configuration is mostly split into [packages](https://www.home-assistant.io/docs/configuration/packages/), in `configuration.yaml`:
+My configuration is mostly split into [packages](https://www.home-assistant.io/docs/configuration/packages/) - place the `.yaml` files in `/config/packages` and add this to `configuration.yaml`:
 
 ```yaml
 homeassistant:
