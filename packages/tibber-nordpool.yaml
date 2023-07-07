@@ -1,0 +1,108 @@
+light:
+  - platform: group
+    name: Tibber price warning lights
+    unique_id: tibber_price_warning_lights
+    entities:
+      - light.price_warning_light_1
+      - ...
+
+template:
+  - binary_sensor:
+      - name: Tibber price above average
+        state: >
+          {{ states('sensor.electricity_price_tibber') | float > state_attr('sensor.electricity_price_tibber', 'avg_price') | float }}
+        device_class: power
+        unique_id: tibber_price_above_average
+        availability: >
+          {{ states('sensor.electricity_price_tibber') | is_number
+            and state_attr('sensor.electricity_price_tibber', 'avg_price') | is_number }}
+        attributes:
+          electricity_price_tibber: "{{ states('sensor.electricity_price_tibber') }}"
+          electricity_price_tibber_avg: "{{ state_attr('sensor.electricity_price_tibber', 'avg_price') }}"
+
+sensor:
+  - platform: nordpool
+    VAT: true
+    currency: SEK
+    price_in_cents: true
+    region: SE4
+    precision: 3
+    price_type: kWh
+    # convert from Öre to SEK and apply VAT
+    additional_costs: >
+      {{ states('input_number.tibber_additional_cost') | float(0) * 0.01 * 1.25 }}
+
+input_number:
+  tibber_additional_cost:
+    name: Tibber additional cost
+    min: 0.0
+    max: 100.0
+    step: 0.01
+    mode: box
+    unit_of_measurement: Öre/kWh
+    icon: mdi:cash-multiple
+
+automation:
+  - id: tibber_price_above_average
+    alias: Tibber price above average
+    description: ""
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.tibber_price_above_average
+        to:
+          - "on"
+          - "off"
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.tibber_price_above_average
+                state: "on"
+            sequence:
+              - service: light.turn_on
+                data:
+                  brightness: 255
+                  color_name: red
+                target:
+                  entity_id:
+                    - light.tibber_price_warning_lights
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.tibber_price_above_average
+                state: "off"
+            sequence:
+              - service: light.turn_on
+                data:
+                  brightness: 255
+                  color_name: green
+                target:
+                  entity_id:
+                    - light.tibber_price_warning_lights
+    mode: single
+
+  - id: tibber_watchdog_device
+    alias: Tibber watchdog (device)
+    description: ""
+    trigger:
+      - platform: template
+        value_template: >
+          {{ now() - states.sensor.power_tibber.last_updated > timedelta(minutes=5) }}
+    action:
+      - service: homeassistant.reload_config_entry
+        target:
+          device_id: 7acc9044e889d6f0000932957a426e89
+    mode: single
+
+  - id: tibber_watchdog_price
+    alias: Tibber watchdog (price)
+    description: ""
+    trigger:
+      - platform: template
+        value_template: >
+          {{ now() - states.sensor.electricity_price_tibber.last_updated > timedelta(hours=1,minutes=5) }}
+    action:
+      - service: homeassistant.reload_config_entry
+        target:
+          device_id: 7acc9044e889d6f0000932957a426e89
+    mode: single
