@@ -2,7 +2,9 @@
 
 Available Home Assistant configuration snippets:
 
-- `packages/z-wave.yaml` - package for handling Z-Wave devices, including catching and coming back from various errors.
+- `packages/z-wave-multicast.yaml` - package for handling Z-Wave multicasting.
+- `packages/z-wave-errors.yaml` - package for catching and coming back from various Z-Wave errors.
+- `packages/unresponsive-switches.yaml` - sometimes switches does not toggle, undetected by Home Assistant, so I use this setup to detect when that happens.
 
 ## Packages
 

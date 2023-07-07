@@ -5,7 +5,6 @@ template:
           {{ is_state('binary_sensor.z_wave_js_ui_running', 'on')
             and states('sensor.alive_z_wave_devices') | int(0) > 0 }}
         delay_on: 0:05:00 # turn on after 5 minutes to allow time for loading nodes
-        icon: mdi:z-wave
         device_class: running
         unique_id: z_wave_addon_up_and_running
 
@@ -14,7 +13,6 @@ template:
         seconds: "/10"
     sensor:
       - name: Dead Z-Wave devices
-        icon: mdi:z-wave
         state: >
           {% if this.attributes.entity_id != none %}
             {{ this.attributes.entity_id | count }}
@@ -36,7 +34,6 @@ template:
             {{ ns.buttons }}
 
       - name: Alive Z-Wave devices
-        icon: mdi:z-wave
         state: >
           {% if this.attributes.entity_id != none %}
             {{ this.attributes.entity_id | count }}
@@ -55,157 +52,10 @@ input_boolean:
   enable_z_wave_problem_detection:
     name: Enable Z-Wave problem detection
     initial: true
-    icon: mdi:z-wave
 
 script:
-  turn_on_zwave_switch_group:
-    alias: Turn on switch group (Z-Wave multicast)
-    icon: mdi:z-wave
-    description: Expand and turn on a group of switches
-    fields:
-      group:
-        name: Group
-        description: Switch group to turn on.
-        required: true
-        example: "switch.outdoor_lights"
-        selector:
-          text:
-    variables:
-      entities: >
-        {{ expand(group)
-          | selectattr('domain', 'eq', 'switch')
-          | selectattr('state', 'eq', 'off')
-          | map(attribute='entity_id') | list }}
-    sequence:
-      - condition: template
-        value_template: >
-          {{ entities | count > 0 }}
-      - service: zwave_js.multicast_set_value
-        data:
-          command_class: 37
-          endpoint: 0
-          property: targetValue
-          value: true
-        target:
-          entity_id: >
-            {{ entities }}
-        continue_on_error: true
-    mode: parallel
-
-  turn_off_zwave_switch_group:
-    alias: Turn off switch group (Z-Wave multicast)
-    icon: mdi:z-wave
-    description: Expand and turn off a group of switches
-    fields:
-      group:
-        name: Group
-        description: Switch group to turn off.
-        required: true
-        example: "switch.outdoor_lights"
-        selector:
-          text:
-    variables:
-      entities: >
-        {{ expand(group)
-          | selectattr('domain', 'eq', 'switch')
-          | selectattr('state', 'eq', 'on')
-          | map(attribute='entity_id') | list }}
-    sequence:
-      - condition: template
-        value_template: >
-          {{ entities | count > 0 }}
-      - service: zwave_js.multicast_set_value
-        data:
-          command_class: 37
-          endpoint: 0
-          property: targetValue
-          value: false
-        target:
-          entity_id: >
-            {{ entities }}
-        continue_on_error: true
-    mode: parallel
-
-  turn_on_zwave_light_group:
-    alias: Turn on light group (Z-Wave multicast)
-    icon: mdi:z-wave
-    description: Expand and turn on a group of lights using Z-Wave multicast
-    fields:
-      group:
-        name: Group
-        description: Light group to turn on.
-        required: true
-        example: "light.hallway_lights"
-        selector:
-          text:
-      brightness:
-        name: Brightness
-        description: Percentage of full brightness.
-        example: "1"
-        default: 99
-        selector:
-          number:
-            min: 0
-            max: 99
-    variables:
-      entities: >
-        {{ expand(group)
-          | selectattr('domain', 'eq', 'light')
-          | map(attribute='entity_id') | list }}
-    sequence:
-      - condition: template
-        value_template: >
-          {{ entities | count > 0 }}
-      - service: zwave_js.multicast_set_value
-        data:
-          command_class: 38
-          endpoint: 1
-          property: targetValue
-          value: >
-            {{ brightness | default(99) }}
-        target:
-          entity_id: >
-            {{ entities }}
-        continue_on_error: true
-    mode: parallel
-
-  turn_off_zwave_light_group:
-    alias: Turn off light group (Z-Wave multicast)
-    icon: mdi:z-wave
-    description: Expand and turn off a group of lights using Z-Wave multicast
-    fields:
-      group:
-        name: Group
-        description: Light group to turn off.
-        required: true
-        example: "light.hallway_lights"
-        selector:
-          text:
-    variables:
-      entities: >
-        {{ expand(group)
-          | selectattr('domain', 'eq', 'light')
-          | selectattr('state', 'eq', 'on')
-          | map(attribute='entity_id') | list }}
-    sequence:
-      - condition: template
-        value_template: >
-          {{ entities | count > 0 }}
-      - service: zwave_js.multicast_set_value
-        data:
-          command_class: 38
-          endpoint: 1
-          property: targetValue
-          value: 0
-        target:
-          entity_id: >
-            {{ entities }}
-        continue_on_error: true
-    mode: parallel
-
   ping_all_z_wave_devices:
     alias: Ping all Z-Wave devices
-    icon: mdi:z-wave
     description: Ping all Z-Wave devices in the network
     sequence:
       - condition: template
@@ -219,16 +69,13 @@ script:
 
   trigger_all_z_wave_automations:
     alias: Trigger all Z-Wave automations
-    icon: mdi:z-wave
     description: Trigger all automations involving Z-Wave devices
     sequence:
       - service: automation.trigger
         data:
           skip_condition: false
         target:
-          # List of Z-Wave automation to trigger when coming back from an error
           entity_id:
-            - automation.hallway_lights
             - automation.outdoor_lights
             - ...
     mode: queued

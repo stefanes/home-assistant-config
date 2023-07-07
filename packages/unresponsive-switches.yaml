@@ -1,0 +1,50 @@
+switch:
+  - platform: group # one group with the “All entities” option off...
+    name: Outdoor lights
+    unique_id: outdoor_lights
+    entities: &outdoor_lights_entities
+      - switch.smart_plug_outdoors_1
+      - ...
+  - platform: group # ...and one with it on
+    name: Outdoor lights (all)
+    unique_id: outdoor_lights_all
+    entities: *outdoor_lights_entities
+    all: true
+
+template:
+  - binary_sensor:
+      - name: Outdoor lights problem
+        state: >
+          {{ states('switch.outdoor_lights') != states('switch.outdoor_lights_all') }}
+        delay_on: 0:02:00 # turn on if problem persists for 2 minutes
+        device_class: problem
+        unique_id: outdoor_lights_problem
+
+automation:
+  - id: outdoor_lights_problem
+    alias: Outdoor lights problem detected
+    description: ""
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.outdoor_lights_problem
+        to: "on"
+        from: "off"
+    action:
+      - repeat:
+          until:
+            - condition: state
+              entity_id: binary_sensor.outdoor_lights_problem
+              state: "off"
+          sequence:
+            - service: automation.trigger
+              data:
+                skip_condition: false
+              target:
+                entity_id:
+                  - automation.outdoor_lights
+            - delay:
+                minutes: 2
+    mode: restart
+    trace:
+      stored_traces: 20

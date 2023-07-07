@@ -1,0 +1,164 @@
+switch:
+  - platform: template # example template switch for multicasting e.g. from UI (instead of using the switch/light group directly)
+    switches:
+      all_outdoor_lights:
+        friendly_name: All outdoor lights
+        unique_id: all_outdoor_lights
+        value_template: >
+          {{ is_state('switch.outdoor_lights', 'on') }}
+        turn_on:
+          service: script.turn_on
+          target:
+            entity_id: script.turn_on_zwave_switch_group
+          data:
+            variables:
+              group: switch.outdoor_lights
+        turn_off:
+          service: script.turn_on
+          target:
+            entity_id: script.turn_off_zwave_switch_group
+          data:
+            variables:
+              group: switch.outdoor_lights
+
+script:
+  turn_on_zwave_switch_group:
+    alias: Turn on switch group (Z-Wave multicast)
+    description: Expand and turn on a group of switches
+    fields:
+      group:
+        name: Group
+        description: Switch group to turn on.
+        required: true
+        example: "switch.outdoor_lights"
+        selector:
+          text:
+    variables:
+      entities: >
+        {{ expand(group)
+          | selectattr('domain', 'eq', 'switch')
+          | selectattr('state', 'eq', 'off')
+          | map(attribute='entity_id') | list }}
+    sequence:
+      - condition: template
+        value_template: >
+          {{ entities | count > 0 }}
+      - service: zwave_js.multicast_set_value
+        data:
+          command_class: 37
+          endpoint: 0
+          property: targetValue
+          value: true
+        target:
+          entity_id: >
+            {{ entities }}
+        continue_on_error: true
+    mode: parallel
+
+  turn_off_zwave_switch_group:
+    alias: Turn off switch group (Z-Wave multicast)
+    description: Expand and turn off a group of switches
+    fields:
+      group:
+        name: Group
+        description: Switch group to turn off.
+        required: true
+        example: "switch.outdoor_lights"
+        selector:
+          text:
+    variables:
+      entities: >
+        {{ expand(group)
+          | selectattr('domain', 'eq', 'switch')
+          | selectattr('state', 'eq', 'on')
+          | map(attribute='entity_id') | list }}
+    sequence:
+      - condition: template
+        value_template: >
+          {{ entities | count > 0 }}
+      - service: zwave_js.multicast_set_value
+        data:
+          command_class: 37
+          endpoint: 0
+          property: targetValue
+          value: false
+        target:
+          entity_id: >
+            {{ entities }}
+        continue_on_error: true
+    mode: parallel
+
+  turn_on_zwave_light_group:
+    alias: Turn on light group (Z-Wave multicast)
+    description: Expand and turn on a group of lights using Z-Wave multicast
+    fields:
+      group:
+        name: Group
+        description: Light group to turn on.
+        required: true
+        example: "light.outdoor_lights"
+        selector:
+          text:
+      brightness:
+        name: Brightness
+        description: Percentage of full brightness.
+        example: "1"
+        default: 99
+        selector:
+          number:
+            min: 0
+            max: 99
+    variables:
+      entities: >
+        {{ expand(group)
+          | selectattr('domain', 'eq', 'light')
+          | map(attribute='entity_id') | list }}
+    sequence:
+      - condition: template
+        value_template: >
+          {{ entities | count > 0 }}
+      - service: zwave_js.multicast_set_value
+        data:
+          command_class: 38
+          endpoint: 1
+          property: targetValue
+          value: >
+            {{ brightness | default(99) }}
+        target:
+          entity_id: >
+            {{ entities }}
+        continue_on_error: true
+    mode: parallel
+
+  turn_off_zwave_light_group:
+    alias: Turn off light group (Z-Wave multicast)
+    description: Expand and turn off a group of lights using Z-Wave multicast
+    fields:
+      group:
+        name: Group
+        description: Light group to turn off.
+        required: true
+        example: "light.outdoor_lights"
+        selector:
+          text:
+    variables:
+      entities: >
+        {{ expand(group)
+          | selectattr('domain', 'eq', 'light')
+          | selectattr('state', 'eq', 'on')
+          | map(attribute='entity_id') | list }}
+    sequence:
+      - condition: template
+        value_template: >
+          {{ entities | count > 0 }}
+      - service: zwave_js.multicast_set_value
+        data:
+          command_class: 38
+          endpoint: 1
+          property: targetValue
+          value: 0
+        target:
+          entity_id: >
+            {{ entities }}
+        continue_on_error: true
+    mode: parallel
