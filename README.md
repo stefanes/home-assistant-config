@@ -2,10 +2,10 @@
 
 Available Home Assistant configuration snippets:
 
-- `packages/z-wave-multicast.yaml` - package for handling Z-Wave multicasting.
-- `packages/z-wave-errors.yaml` - package for catching and coming back from various Z-Wave errors.
-- `packages/unresponsive-switches.yaml` - sometimes switches does not toggle, undetected by Home Assistant, so I use this setup to detect when that happens.
-- `packages/tibber-nordpool.yaml` - package for the [Tibber](https://www.home-assistant.io/integrations/tibber)/[Nord Pool](https://github.com/custom-components/nordpool) integrations.
+- [`z-wave-multicast.yaml`](packages/z-wave-multicast.yaml) - package for handling Z-Wave multicasting.
+- [`z-wave-errors.yaml`](packages/z-wave-errors.yaml) - package for catching and coming back from various Z-Wave errors.
+- [`unresponsive-switches.yaml`](packages/unresponsive-switches.yaml) - sometimes switches does not toggle, undetected by Home Assistant, so I use this setup to detect when that happens.
+- [`tibber-nordpool.yaml`](packages/tibber-nordpool.yaml) - package for the [Tibber](https://www.home-assistant.io/integrations/tibber)/[Nord Pool](https://github.com/custom-components/nordpool) integrations.
 
 ## Packages
 
