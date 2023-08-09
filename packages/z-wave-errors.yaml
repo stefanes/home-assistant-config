@@ -157,10 +157,17 @@ automation:
         conditions:
           - condition: template
             value_template: >
-              {{ 'zwave_js_server.exceptions.Failed' in trigger.event.data.exception }}
+              {% set components = [
+                'homeassistant.components.zwave_js',
+                'homeassistant.components.script.turn_on_zwave_switch_group',
+                'homeassistant.components.script.turn_off_zwave_switch_group',
+                'homeassistant.components.script.turn_on_zwave_light_group',
+                'homeassistant.components.script.turn_off_zwave_light_group'
+              ] %}
+              {{ trigger.event.data.name in components }}
           - condition: template
             value_template: >
-              {{ 'Unable to set value via multicast' in (trigger.event.data.message | join('|')) }}
+              {{ 'zwave_js_server.exceptions.Failed' in trigger.event.data.exception }}
       - condition: not
         conditions:
           - condition: template
