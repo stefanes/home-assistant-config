@@ -1,0 +1,278 @@
+views:
+  - title: Commute
+    icon: mdi:train-car
+    cards:
+      - type: custom:mushroom-title-card
+        title: Commute
+        subtitle: 🏢 Bus to work
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: >-
+              {% set departure_time = (states('sensor.commute_to_work_1') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) >= timedelta(minutes=15)  %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ states(entity) }}
+                {% else %}
+                  In ≳ 2 hours
+                {% endif %}
+              {% endif %}
+            secondary: >
+              {% set departure_time = (states('sensor.commute_to_work_1') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) >= timedelta(minutes=15)  %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ departure_time| as_timestamp | timestamp_custom('%H:%M') }}
+                {% endif %}
+              {% else %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ states(entity) }}
+                {% else %}
+                  In ≳ 2 hours
+                {% endif %}
+              {% endif %}
+            icon: mdi:train-car
+            entity: sensor.commute_to_work_1_relative
+            layout: vertical
+            icon_color: >
+              {% set departure_time = (states('sensor.commute_to_work_1') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) < timedelta(minutes=0)  %}
+                disabled
+              {% elif (departure_time - now()) < timedelta(minutes=15)  %}
+                red
+              {% elif (departure_time - now()) < timedelta(minutes=20) %}
+                yellow
+              {% else %}
+                green
+              {% endif %}
+            fill_container: true
+          - type: custom:mushroom-template-card
+            primary: >-
+              {% set departure_time = (states('sensor.commute_to_work_2') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) >= timedelta(minutes=15)  %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ states(entity) }}
+                {% else %}
+                  In ≳ 2 hours
+                {% endif %}
+              {% endif %}
+            secondary: >-
+              {% set departure_time = (states('sensor.commute_to_work_2') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) >= timedelta(minutes=15)  %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ departure_time| as_timestamp | timestamp_custom('%H:%M') }}
+                {% endif %}
+              {% else %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ states(entity) }}
+                {% else %}
+                  In ≳ 2 hours
+                {% endif %}
+              {% endif %}
+            icon: mdi:train-car
+            entity: sensor.commute_to_work_2_relative
+            layout: vertical
+            icon_color: >
+              {% set departure_time = (states('sensor.commute_to_work_2') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) < timedelta(minutes=0)  %}
+                disabled
+              {% elif (departure_time - now()) < timedelta(minutes=15)  %}
+                red
+              {% elif (departure_time - now()) < timedelta(minutes=20) %}
+                yellow
+              {% else %}
+                green
+              {% endif %}
+            fill_container: true
+          - type: custom:mushroom-template-card
+            primary: >-
+              {% set departure_time = (states('sensor.commute_to_work_3') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) >= timedelta(minutes=15)  %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ states(entity) }}
+                {% else %}
+                  In ≳ 2 hours
+                {% endif %}
+              {% endif %}
+            secondary: >-
+              {% set departure_time = (states('sensor.commute_to_work_3') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) >= timedelta(minutes=15)  %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ departure_time| as_timestamp | timestamp_custom('%H:%M') }}
+                {% endif %}
+              {% else %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ states(entity) }}
+                {% else %}
+                  In ≳ 2 hours
+                {% endif %}
+              {% endif %}
+            icon: mdi:train-car
+            entity: sensor.commute_to_work_3_relative
+            layout: vertical
+            icon_color: >
+              {% set departure_time = (states('sensor.commute_to_work_3') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) < timedelta(minutes=0)  %}
+                disabled
+              {% elif (departure_time - now()) < timedelta(minutes=15)  %}
+                red
+              {% elif (departure_time - now()) < timedelta(minutes=20) %}
+                yellow
+              {% else %}
+                green
+              {% endif %}
+            fill_container: true
+      - type: custom:mushroom-title-card
+        title: ""
+        subtitle: 🏡 Bus from work
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: >-
+              {% set departure_time = (states('sensor.commute_from_work_1') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) >= timedelta(minutes=4)  %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ states(entity) }}
+                {% else %}
+                  In ≳ 2 hours
+                {% endif %}
+              {% endif %}
+            secondary: >-
+              {% set departure_time = (states('sensor.commute_from_work_1') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) >= timedelta(minutes=4)  %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ departure_time| as_timestamp | timestamp_custom('%H:%M') }}
+                {% endif %}
+              {% else %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ states(entity) }}
+                {% else %}
+                  In ≳ 2 hours
+                {% endif %}
+              {% endif %}
+            icon: mdi:train-car
+            entity: sensor.commute_from_work_1_relative
+            layout: vertical
+            icon_color: >-
+              {% set departure_time = (states('sensor.commute_from_work_1') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) < timedelta(minutes=0)  %}
+                disabled
+              {% elif (departure_time - now()) < timedelta(minutes=4)  %}
+                red
+              {% elif (departure_time - now()) < timedelta(minutes=8) %}
+                yellow
+              {% else %}
+                green
+              {% endif %}
+            fill_container: true
+          - type: custom:mushroom-template-card
+            primary: >-
+              {% set departure_time = (states('sensor.commute_from_work_2') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) >= timedelta(minutes=4)  %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ states(entity) }}
+                {% else %}
+                  In ≳ 2 hours
+                {% endif %}
+              {% endif %}
+            secondary: >-
+              {% set departure_time = (states('sensor.commute_from_work_2') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) >= timedelta(minutes=4)  %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ departure_time| as_timestamp | timestamp_custom('%H:%M') }}
+                {% endif %}
+              {% else %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ states(entity) }}
+                {% else %}
+                  In ≳ 2 hours
+                {% endif %}
+              {% endif %}
+            icon: mdi:train-car
+            entity: sensor.commute_from_work_2_relative
+            layout: vertical
+            icon_color: >-
+              {% set departure_time = (states('sensor.commute_from_work_2') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) < timedelta(minutes=0)  %}
+                disabled
+              {% elif (departure_time - now()) < timedelta(minutes=4)  %}
+                red
+              {% elif (departure_time - now()) < timedelta(minutes=8) %}
+                yellow
+              {% else %}
+                green
+              {% endif %}
+            fill_container: true
+          - type: custom:mushroom-template-card
+            primary: >
+              {% set departure_time = (states('sensor.commute_from_work_3') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) >= timedelta(minutes=4)  %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ states(entity) }}
+                {% else %}
+                  In ≳ 2 hours
+                {% endif %}
+              {% endif %}
+            secondary: >-
+              {% set departure_time = (states('sensor.commute_from_work_3') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) >= timedelta(minutes=4)  %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ departure_time| as_timestamp | timestamp_custom('%H:%M') }}
+                {% endif %}
+              {% else %}
+                {% if (departure_time - now()) > timedelta(minutes=-10) %}
+                  {{ states(entity) }}
+                {% else %}
+                  In ≳ 2 hours
+                {% endif %}
+              {% endif %}
+            icon: mdi:train-car
+            entity: sensor.commute_from_work_3_relative
+            layout: vertical
+            icon_color: >-
+              {% set departure_time = (states('sensor.commute_from_work_3') |
+              as_datetime ) %}
+
+              {% if (departure_time - now()) < timedelta(minutes=0)  %}
+                disabled
+              {% elif (departure_time - now()) < timedelta(minutes=4)  %}
+                red
+              {% elif (departure_time - now()) < timedelta(minutes=8) %}
+                yellow
+              {% else %}
+                green
+              {% endif %}
+            fill_container: true

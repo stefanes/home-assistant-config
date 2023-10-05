@@ -5,6 +5,7 @@ template:
           {{ is_state('binary_sensor.z_wave_js_ui_running', 'on')
             and states('sensor.alive_z_wave_devices') | int(0) > 0 }}
         delay_on: 0:05:00 # turn on after 5 minutes to allow time for loading nodes
+        icon: mdi:z-wave
         device_class: running
         unique_id: z_wave_addon_up_and_running
 
@@ -13,6 +14,7 @@ template:
         seconds: "/10"
     sensor:
       - name: Dead Z-Wave devices
+        icon: mdi:z-wave
         state: >
           {% if this.attributes.entity_id != none %}
             {{ this.attributes.entity_id | count }}
@@ -34,6 +36,7 @@ template:
             {{ ns.buttons }}
 
       - name: Alive Z-Wave devices
+        icon: mdi:z-wave
         state: >
           {% if this.attributes.entity_id != none %}
             {{ this.attributes.entity_id | count }}
@@ -52,10 +55,12 @@ input_boolean:
   enable_z_wave_problem_detection:
     name: Enable Z-Wave problem detection
     initial: true
+    icon: mdi:z-wave
 
 script:
   ping_all_z_wave_devices:
     alias: Ping all Z-Wave devices
+    icon: mdi:z-wave
     description: Ping all Z-Wave devices in the network
     sequence:
       - condition: template
@@ -69,6 +74,7 @@ script:
 
   trigger_all_z_wave_automations:
     alias: Trigger all Z-Wave automations
+    icon: mdi:z-wave
     description: Trigger all automations involving Z-Wave devices
     sequence:
       - service: automation.trigger

@@ -24,6 +24,7 @@ switch:
 script:
   turn_on_zwave_switch_group:
     alias: Turn on switch group (Z-Wave multicast)
+    icon: mdi:z-wave
     description: Expand and turn on a group of switches
     fields:
       group:
@@ -57,6 +58,7 @@ script:
 
   turn_off_zwave_switch_group:
     alias: Turn off switch group (Z-Wave multicast)
+    icon: mdi:z-wave
     description: Expand and turn off a group of switches
     fields:
       group:
@@ -90,6 +92,7 @@ script:
 
   turn_on_zwave_light_group:
     alias: Turn on light group (Z-Wave multicast)
+    icon: mdi:z-wave
     description: Expand and turn on a group of lights using Z-Wave multicast
     fields:
       group:
@@ -132,6 +135,7 @@ script:
 
   turn_off_zwave_light_group:
     alias: Turn off light group (Z-Wave multicast)
+    icon: mdi:z-wave
     description: Expand and turn off a group of lights using Z-Wave multicast
     fields:
       group:

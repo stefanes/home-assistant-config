@@ -1,0 +1,60 @@
+views:
+  - title: Home
+    icon: mdi:home-lightning-bolt-outline
+    cards:
+      - type: custom:apexcharts-card
+        graph_span: 34h
+        update_interval: 1h
+        header:
+          show: true
+          show_states: true
+          colorize_states: true
+        hours_12: false
+        span:
+          start: hour
+        now:
+          show: true
+          label: Now
+        series:
+          - entity: sensor.nordpool_sensor # <-- change this to the correct name of your sensor
+            name: Energy price
+            type: column
+            data_generator: |
+              return (entity.attributes.raw_today.map((start, index) => {
+                return [new Date(start["start"]).getTime(), entity.attributes.raw_today[index]["value"]];
+              })).concat(entity.attributes.raw_tomorrow.map((start, index) => {
+                return [new Date(start["start"]).getTime(), entity.attributes.raw_tomorrow[index]["value"]];
+              }));
+            float_precision: 0
+            stroke_width: 4
+            show:
+              legend_value: false
+              in_header: false
+          - entity: sensor.electricity_price_tibber_cents
+            name: Current energy price
+            float_precision: 0
+            show:
+              in_chart: false
+          - entity: sensor.electricity_price_tibber_cents
+            attribute: avg_price
+            name: Today's average
+            float_precision: 0
+            stroke_width: 2
+            show:
+              legend_value: false
+              in_header: false
+          - entity: sensor.electricity_price_tibber_cents
+            attribute: price_percent_to_average
+            name: Current price to average
+            unit: "%"
+            float_precision: 0
+            show:
+              in_chart: false
+        apex_config:
+          yaxis:
+            min: 0
+            tickAmount: 3
+          tooltip:
+            fixed:
+              enabled: true
+              position: top_right
