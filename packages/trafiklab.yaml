@@ -103,6 +103,24 @@ rest:
           {{ departure }}
         unique_id: commute_to_work_3
 
+input_number:
+  commute_from_work_stop_distance:
+    name: Distance to commute from work stop (in minutes)
+    min: 0
+    max: 30
+    step: 1
+    mode: box
+    unit_of_measurement: min
+    icon: mdi:map-marker-distance
+  commute_to_work_stop_distance:
+    name: Distance to commute to work stop (in minutes)
+    min: 0
+    max: 30
+    step: 1
+    mode: box
+    unit_of_measurement: min
+    icon: mdi:map-marker-distance
+
 template:
   - sensor:
       - name: "Commute from work #1 (relative)"
