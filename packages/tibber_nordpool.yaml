@@ -128,20 +128,10 @@ automation:
         to: "on"
         from: "off"
     action:
-      - service: script.notify_mobile
-        data:
-          title: Tibber unavailable
-          message: Problem detected with Tibber (for more than 120 seconds)
-          icon: mdi:flash-alert
-          target: /config/devices/device/826696b0496045db9f55873426cd8478  # <-- change this to the correct Tibber device Id
-          group: tibber-watchdog
-          category: Watchdog
-          category_importance: low
-        enabled: true
       - repeat:
           until:
             - condition: state
-              entity_id: binary_sensor.hallway_lights_problem
+              entity_id: binary_sensor.tibber_unavailable
               state: "off"
           sequence:
             - service: homeassistant.reload_config_entry
@@ -149,16 +139,6 @@ automation:
                 device_id: 826696b0496045db9f55873426cd8478
             - delay:
                 minutes: 5
-      - service: script.notify_mobile
-        data:
-          title: Tibber available again
-          message: Problem with Tibber resolved
-          icon: mdi:flash-alert-outline
-          target: /config/devices/device/826696b0496045db9f55873426cd8478
-          group: tibber-watchdog
-          category: Watchdog
-          category_importance: low
-        enabled: true
     mode: restart
     trace:
       stored_traces: 20
