@@ -157,7 +157,7 @@ views:
               {% endif %}
             fill_container: true
       - type: custom:mushroom-title-card
-        title: ""
+        title: ''
         subtitle: 🏡 Bus from work
       - type: horizontal-stack
         cards:

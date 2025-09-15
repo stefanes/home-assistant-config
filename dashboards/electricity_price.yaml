@@ -1,0 +1,380 @@
+views:
+  - title: Electricity price
+    icon: mdi:home-lightning-bolt-outline
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: custom:mushroom-title-card
+            subtitle: Electricity price
+          - type: custom:apexcharts-card
+            experimental:
+              color_threshold: true
+            graph_span: 48h
+            update_interval: 1h
+            header:
+              show: true
+              show_states: true
+              colorize_states: true
+            hours_12: false
+            span:
+              start: day
+            now:
+              show: true
+              label: Now
+            series:
+              - entity: sensor.electricity_price
+                name: Price
+                type: column
+                data_generator: |
+                  return (entity.attributes.prices.map((start, index) => {
+                    return [new Date(start["start_time"]).getTime(), entity.attributes.prices[index]["price"] * 100];
+                  }));
+                unit: öre/kWh
+                float_precision: 0
+                color_threshold:
+                  - value: 20
+                    color: '#D4E6F1'
+                  - value: 40
+                    color: '#A9CCE3'
+                  - value: 60
+                    color: '#7FB3D5'
+                  - value: 90
+                    color: '#5499C7'
+                  - value: 130
+                    color: '#2980B9'
+                  - value: 180
+                    color: '#F7DC6F'
+                  - value: 240
+                    color: '#F4D03F'
+                  - value: 300
+                    color: '#F1C40F'
+                  - value: 350
+                    color: '#D68910'
+                  - value: 400
+                    color: '#B9770E'
+                show:
+                  extremas: true
+                  legend_value: false
+                  in_header: false
+            yaxis:
+              - id: '1'
+                align_to: 1
+                min: 0
+                decimals: 0
+                apex_config:
+                  title:
+                    text: öre/kWh
+                  tickAmount: 4
+            apex_config:
+              xaxis:
+                type: datetime
+                tooltip:
+                  enabled: false
+              tooltip:
+                enabled: true
+                x:
+                  show: true
+                fixed:
+                  enabled: true
+                  position: top_right
+          - type: entities
+            entities:
+              - entity: sensor.electricity_price_tibber
+                type: custom:mushroom-entity-card
+                secondary: >-
+                  {{ state_attr('sensor.electricity_price_tibber', 'avg_price')
+                  }}
+                icon_color: cyan
+              - entity: sensor.tibber_price
+                secondary_info: last-updated
+              - entity: sensor.nord_pool_price
+                secondary_info: last-updated
+              - entity: sensor.nord_pool_additional_cost
+                type: custom:mushroom-entity-card
+                icon: mdi:currency-usd
+                icon_color: cyan
+      - type: vertical-stack
+        cards:
+          - type: custom:mushroom-title-card
+            subtitle: Cheap/expensive
+          - type: history-graph
+            entities:
+              - entity: binary_sensor.tibber_price_cheap
+                name: Tibber cheap
+              - entity: binary_sensor.tibber_price_expensive
+                name: ...expensive
+              - entity: binary_sensor.nord_pool_price_cheap
+                name: Nord Pool cheap
+              - entity: binary_sensor.nord_pool_price_expensive
+                name: ...expensive
+            hours_to_show: 12
+          - type: markdown
+            content: >
+              {%- set prices = state_attr('sensor.electricity_price', 'prices')
+              -%}
+
+              {%- from 'electricity_price.jinja' import
+              electricity_price_outliers, electricity_price_minmax,
+              electricity_price_html -%}
+
+              <center/>
+
+              <font size="1" color="gray">
+                <a><b>{{ now().hour }}</b> ({{ (states('sensor.electricity_price') | float(0) * 100) | round(0) }})</a> vs.
+              </font>
+
+
+              <font size="2">Cheap hours</font>
+
+              <font size="1" color="gray">
+                {{ electricity_price_html(electricity_price_outliers(prices, for_html = true)) }} {{ electricity_price_html(electricity_price_outliers(prices, date = now().date() + timedelta(days=1), for_html = true), delimit_start=true, hour = none) }}
+              </font>
+
+
+              <font size="2">Expensive hours</font>
+
+              <font size="1" color="gray">
+                {{ electricity_price_html(electricity_price_outliers(prices, cheap = false, for_html = true)) }} {{ electricity_price_html(electricity_price_outliers(prices, cheap = false, date = now().date() + timedelta(days=1), for_html = true), delimit_start=true, hour = none) }}
+              </font>
+
+
+              <font size="2">Max 60 öre/kWh</font>
+
+              <font size="1" color="gray">
+                {{ electricity_price_html(electricity_price_minmax(prices, max_price = 0.6, for_html = true)) }} {{ electricity_price_html(electricity_price_minmax(prices, max_price = 0.6,
+                date = now().date() + timedelta(days=1), for_html = true), delimit_start=true, hour = none) }}
+              </font>
+
+
+              <font size="1" color="gray">
+                <b>Hour of day</b> (öre/kWh)
+              </font>
+          - type: entities
+            entities:
+              - type: custom:mushroom-template-card
+                entity: sensor.electricity_price_tibber
+                secondary: >-
+                  {{ state_attr('sensor.electricity_price_tibber', 'avg_price')
+                  | replace('.', ',') }} SEK/kWh
+                tap_action:
+                  action: more-info
+                primary: >-
+                  {{ state_attr('sensor.electricity_price_tibber',
+                  'friendly_name') }} (avg.)
+                icon: mdi:currency-usd
+                color: cyan
+                features_position: bottom
+              - entity: sensor.tibber_price
+                name: Tibber today's avg.
+                type: attribute
+                attribute: avg_price
+                suffix: SEK/kWh
+              - entity: sensor.nord_pool_price
+                name: Nord Pool today's avg.
+                type: attribute
+                attribute: avg_price
+                suffix: SEK/kWh
+              - entity: sensor.tibber_price
+                name: Tibber price % to avg.
+                type: attribute
+                attribute: price_percent_to_average
+                suffix: '%'
+              - entity: sensor.nord_pool_price
+                name: Nord Pool price % to avg.
+                type: attribute
+                attribute: price_percent_to_average
+                suffix: '%'
+              - entity: sensor.tibber_price
+                name: Tibber tomorrow's avg.
+                type: attribute
+                attribute: tomorrow_avg_price
+                suffix: SEK/kWh
+              - entity: sensor.nord_pool_price
+                name: Nord Pool tomorrow's avg.
+                type: attribute
+                attribute: tomorrow_avg_price
+                suffix: SEK/kWh
+      - type: vertical-stack
+        cards:
+          - type: custom:mushroom-title-card
+            subtitle: Status
+          - type: history-graph
+            entities:
+              - entity: sensor.tibber_price_api
+                name: Tibber API
+              - entity: binary_sensor.tibber_price_api_status
+                name: ...status
+              - entity: binary_sensor.tibber_unavailable
+                name: ...availability
+              - entity: sensor.nord_pool_price_api
+                name: Nord Pool API
+              - entity: binary_sensor.nord_pool_price_api_status
+                name: ...status
+              - entity: binary_sensor.nord_pool_unavailable
+                name: ...availability
+            hours_to_show: 12
+          - type: entities
+            entities:
+              - entity: automation.tibber_watchdog
+                secondary_info: last-triggered
+              - entity: automation.nord_pool_watchdog
+                secondary_info: last-triggered
+      - type: vertical-stack
+        cards:
+          - type: custom:mushroom-title-card
+            subtitle: Tibber vs. Nord Pool
+          - type: tile
+            entity: input_select.electricity_price_sensor
+            features_position: bottom
+            vertical: false
+          - type: horizontal-stack
+            cards:
+              - type: custom:apexcharts-card
+                experimental:
+                  color_threshold: true
+                graph_span: 34h
+                update_interval: 1h
+                header:
+                  show: true
+                  show_states: true
+                  colorize_states: true
+                hours_12: false
+                span:
+                  start: hour
+                now:
+                  show: true
+                  label: Now
+                series:
+                  - entity: sensor.tibber_price
+                    name: Price
+                    type: column
+                    data_generator: |
+                      return (entity.attributes.prices.map((start, index) => {
+                        return [new Date(start["start_time"]).getTime(), entity.attributes.prices[index]["price"] * 100];
+                      }));
+                    unit: öre/kWh
+                    float_precision: 0
+                    color_threshold:
+                      - value: 20
+                        color: '#D4E6F1'
+                      - value: 40
+                        color: '#A9CCE3'
+                      - value: 60
+                        color: '#7FB3D5'
+                      - value: 90
+                        color: '#5499C7'
+                      - value: 130
+                        color: '#2980B9'
+                      - value: 180
+                        color: '#F7DC6F'
+                      - value: 240
+                        color: '#F4D03F'
+                      - value: 300
+                        color: '#F1C40F'
+                      - value: 350
+                        color: '#D68910'
+                      - value: 400
+                        color: '#B9770E'
+                    show:
+                      extremas: true
+                      legend_value: false
+                      in_header: false
+                yaxis:
+                  - id: '1'
+                    align_to: 1
+                    min: 0
+                    decimals: 0
+                    apex_config:
+                      title:
+                        text: öre/kWh
+                      tickAmount: 4
+                apex_config:
+                  xaxis:
+                    type: datetime
+                    tooltip:
+                      enabled: false
+                  tooltip:
+                    enabled: true
+                    x:
+                      show: true
+                    fixed:
+                      enabled: true
+                      position: top_right
+          - type: horizontal-stack
+            cards:
+              - type: custom:apexcharts-card
+                experimental:
+                  color_threshold: true
+                graph_span: 34h
+                update_interval: 1h
+                header:
+                  show: true
+                  show_states: true
+                  colorize_states: true
+                hours_12: false
+                span:
+                  start: hour
+                now:
+                  show: true
+                  label: Now
+                series:
+                  - entity: sensor.nord_pool_price
+                    name: Price
+                    type: column
+                    data_generator: |
+                      return (entity.attributes.prices.map((start, index) => {
+                        return [new Date(start["start_time"]).getTime(), entity.attributes.prices[index]["price"] * 100];
+                      }));
+                    unit: öre/kWh
+                    float_precision: 0
+                    color_threshold:
+                      - value: 20
+                        color: '#D4E6F1'
+                      - value: 40
+                        color: '#A9CCE3'
+                      - value: 60
+                        color: '#7FB3D5'
+                      - value: 90
+                        color: '#5499C7'
+                      - value: 130
+                        color: '#2980B9'
+                      - value: 180
+                        color: '#F7DC6F'
+                      - value: 240
+                        color: '#F4D03F'
+                      - value: 300
+                        color: '#F1C40F'
+                      - value: 350
+                        color: '#D68910'
+                      - value: 400
+                        color: '#B9770E'
+                    show:
+                      extremas: true
+                      legend_value: false
+                      in_header: false
+                yaxis:
+                  - id: '1'
+                    align_to: 1
+                    min: 0
+                    decimals: 0
+                    apex_config:
+                      title:
+                        text: öre/kWh
+                      tickAmount: 4
+                apex_config:
+                  xaxis:
+                    type: datetime
+                    tooltip:
+                      enabled: false
+                  tooltip:
+                    enabled: true
+                    x:
+                      show: true
+                    fixed:
+                      enabled: true
+                      position: top_right
+          - type: history-graph
+            entities:
+              - entity: sensor.tibber_price
+              - entity: sensor.nord_pool_price
+            hours_to_show: 12

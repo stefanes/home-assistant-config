@@ -1,0 +1,268 @@
+#requires custom_templates/electricity_price.jinja
+#requires packages/electricity_price.yaml
+
+#region Tibber
+# docs: https://www.home-assistant.io/integrations/tibber
+# device: [device_id]                                                   <-- TODO: replace all occurrences with your device id
+# sensor: sensor.electricity_price_tibber
+# setup:
+#   Tibber ┬-[schedule]--> tibber_price_api -┬-[schedule]--> tibber_price -┬--> tibber_price_cheap
+#          |                                 |                             └--> tibber_price_expensive
+#          └---------------------------------┼--> tibber_price_api_status
+#                                            └--> tibber_price_unavailable
+#endregion
+
+template:
+  - trigger:
+      - trigger: time_pattern
+        minutes: 30
+        id: "time_pattern"
+      - trigger: homeassistant
+        event: start
+        id: "home_assistant_startup"
+      - platform: event
+        event_type: call_service
+        event_data:
+          domain: template
+          service: reload
+        id: "template_reload"
+      - trigger: state
+        entity_id: binary_sensor.tibber_price_api_status
+        to: "on"
+        from: "off"
+        id: "price_api_status"
+    # only trigger on 'time_pattern' after 13 (until we have tomorrow's prices)
+    conditions: >
+      {{ (trigger.id == 'time_pattern'
+          and is_state_attr('binary_sensor.tibber_price_api_status', 'tomorrows_prices_available', false)
+              and 13 <= now().hour <= 23 )
+          or trigger.id != 'time_pattern' }}
+    action:
+      - action: tibber.get_prices
+        data:
+          start: "{{ (today_at()).strftime('%Y-%m-%d %H:%M:%S') }}"
+          end: "{{ (today_at() + timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S') }}"
+        response_variable: today_prices
+      - action: tibber.get_prices
+        data:
+          start: "{{ (today_at() + timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S') }}"
+          end: "{{ (today_at() + timedelta(days=2)).strftime('%Y-%m-%d %H:%M:%S') }}"
+        response_variable: tomorrow_prices
+    sensor:
+      - name: Tibber price API
+        state: &today_start >
+          {{ ((today_prices.prices.values() | first)[0].start_time | as_datetime(now().min)).isoformat() }}
+        device_class: timestamp
+        unique_id: tibber_price_api
+        icon: mdi:api
+        availability: >
+          {{ today_prices is mapping and today_prices.prices.values() | first | length > 0 }}
+        attributes:
+          sensor_updated_by: >
+            {{ trigger.id | replace('_', ' ') | title }} at {{ now().strftime('%H:%M:%S') }}
+          today_start: *today_start
+          tomorrow_start: >
+            {% if tomorrow_prices is mapping and tomorrow_prices.prices.values() | first | length > 0 %}
+              {{ ((tomorrow_prices.prices.values() | first)[0].start_time | as_datetime(now().min)).isoformat() }}
+            {% endif %}
+          prices: >
+            {{ today_prices.prices.values() | first + tomorrow_prices.prices.values() | first }}
+
+  - trigger:
+      - trigger: time_pattern
+        minutes: 0
+        id: "time_pattern"
+      - trigger: state
+        entity_id: sensor.tibber_price_api
+        id: "price_api"
+    # only update if 'tibber_price_api' is valid
+    conditions: >
+      {{ is_state('binary_sensor.tibber_price_api_status', 'on') }}
+    sensor:
+      - name: Tibber price
+        state: >
+          {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+          {% from 'electricity_price.jinja' import electricity_price_current %}
+          {% set current_price = electricity_price_current(prices) %}
+          {{ current_price }}
+        unit_of_measurement: SEK/kWh
+        state_class: total
+        device_class: monetary
+        unique_id: tibber_price
+        icon: mdi:cash-multiple
+        availability: >
+          {{ has_value('sensor.tibber_price_api') }}
+        attributes:
+          sensor_updated_by: >
+            {{ trigger.id | replace('_', ' ') | title }} at {{ now().strftime('%H:%M:%S') }}
+          avg_price: >
+            {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_avg %}
+            {% set avg_price = electricity_price_avg(prices) %}
+            {{ avg_price }}
+          price_percent_to_average: >
+            {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg %}
+            {% set current_price = electricity_price_current(prices) | float %}
+            {% set avg_price = electricity_price_avg(prices) | float %}
+            {% set price_percent_to_average = ((current_price / avg_price) * 100) %}
+            {{ price_percent_to_average | round(0, default=0) }}
+          price_above_average: >
+            {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg %}
+            {% set current_price = electricity_price_current(prices) | float %}
+            {% set avg_price = electricity_price_avg(prices) | float %}
+            {{ current_price > avg_price }}
+          price_level: >
+            {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg %}
+            {% set current_price = electricity_price_current(prices) | float %}
+            {% set avg_price = electricity_price_avg(prices) | float %}
+            {% set price_percent_to_average = ((current_price / avg_price) * 100) %}
+            {#
+              VERY_CHEAP - The price is smaller or equal to 60 % compared to average price
+              CHEAP - The price is greater than 60 % and less or equal to 90 % compared to average price
+              NORMAL - The price is greater than 90 % and less than 115 % compared to average price
+              EXPENSIVE - The price is greater or equal to 115 % and less than 140 % compared to average price
+              VERY_EXPENSIVE - The price is greater or equal to 140 % compared to average price
+            #}
+            {% if price_percent_to_average <= 60 %}
+              VERY_CHEAP
+            {% elif price_percent_to_average > 60 and price_percent_to_average <= 90 %}
+              CHEAP
+            {% elif price_percent_to_average > 90 and price_percent_to_average < 115 %}
+              NORMAL
+            {% elif price_percent_to_average >= 115 and price_percent_to_average < 140 %}
+              EXPENSIVE
+            {% elif price_percent_to_average >= 140 %}
+              VERY_EXPENSIVE
+            {% else %}
+              UNKNOWN
+            {% endif %}
+          today: >
+            {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_format %}
+            {{ electricity_price_format(prices,
+              as_list = true) }}
+          tomorrow: >
+            {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_format %}
+            {{ electricity_price_format(prices,
+              date = now().date() + timedelta(days=1),
+              as_list = true) }}
+          tomorrow_avg_price: >
+            {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_avg %}
+            {% set avg_price = electricity_price_avg(prices,
+              date = now().date() + timedelta(days=1)) %}
+            {{ avg_price }}
+          prices: >
+            {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_format %}
+            {{ electricity_price_format(prices,
+              date = none) }}
+
+  - binary_sensor:
+      - name: Tibber price API status
+        state: &todays_prices_available >
+          {% set today_start = (states('sensor.tibber_price_api') | as_datetime(now().min) | as_local).date() %}
+          {% set tomorrow_start = (state_attr('sensor.tibber_price_api', 'tomorrow_start') | as_datetime(now().min) | as_local).date() %}
+          {{ today_start == now().date()
+              or tomorrow_start  == now().date() }}
+        device_class: connectivity
+        unique_id: tibber_price_api_status
+        availability: >
+          {{ has_value('sensor.tibber_price_api') }}
+        attributes:
+          todays_prices_available: *todays_prices_available
+          tomorrows_prices_available: >
+            {% set tomorrow_start = (state_attr('sensor.tibber_price_api', 'tomorrow_start') | as_datetime(now().min) | as_local).date() %}
+            {{ tomorrow_start == now().date() + timedelta(days=1) }}
+          tibber_price_api_today_start: "{{ state_attr('sensor.tibber_price_api', 'today_start') }}"
+          tibber_price_api_tomorrow_start: "{{ state_attr('sensor.tibber_price_api', 'tomorrow_start') }}"
+
+      - name: Tibber price cheap
+        state: >
+          {% set prices = state_attr('sensor.tibber_price', 'prices') %}
+          {% from 'electricity_price.jinja' import electricity_price_current_is_outlier %}
+          {{ electricity_price_current_is_outlier(prices) }}
+        device_class: power
+        unique_id: tibber_price_cheap
+        availability: >
+          {{ has_value('sensor.tibber_price') }}
+        attributes:
+          today: >
+            {% set prices = state_attr('sensor.tibber_price', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_outliers %}
+            {{ electricity_price_outliers(prices) }}
+          tomorrow: >
+            {% set prices = state_attr('sensor.tibber_price', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_outliers %}
+            {{ electricity_price_outliers(prices,
+              date = now().date() + timedelta(days=1)) }}
+          electricity_price_threshold: "{{ states('sensor.electricity_price_threshold') }}"
+          electricity_price_cheap_hours: "{{ states('sensor.electricity_price_cheap_hours') }}"
+
+      - name: Tibber price expensive
+        state: >
+          {% set prices = state_attr('sensor.tibber_price', 'prices') %}
+          {% from 'electricity_price.jinja' import electricity_price_current_is_outlier %}
+          {{ electricity_price_current_is_outlier(prices,
+            cheap = false) }}
+        device_class: power
+        unique_id: tibber_price_expensive
+        availability: >
+          {{ has_value('sensor.tibber_price') }}
+        attributes:
+          today: >
+            {% set prices = state_attr('sensor.tibber_price', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_outliers %}
+            {{ electricity_price_outliers(prices,
+              cheap = false) }}
+          tomorrow: >
+            {% set prices = state_attr('sensor.tibber_price', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_outliers %}
+            {{ electricity_price_outliers(prices,
+              cheap = false,
+              date = now().date() + timedelta(days=1)) }}
+          electricity_price_threshold: "{{ states('sensor.electricity_price_threshold') }}"
+          electricity_price_expensive_hours: "{{ states('sensor.electricity_price_expensive_hours') }}"
+
+      - name: Tibber unavailable
+        state: >
+          {{ not (
+            has_value('sensor.electricity_price_tibber')
+            and has_value('sensor.tibber_price_api')
+            and is_state('binary_sensor.tibber_price_api_status', 'on')) }}
+        delay_on: 0:02:00 # turn on if problem persists for 2 minutes
+        device_class: problem
+        unique_id: tibber_unavailable
+        attributes:
+          electricity_price_tibber: "{{ states('sensor.electricity_price_tibber') }}"
+          tibber_price_api: "{{ states('sensor.tibber_price_api') }}"
+          tibber_price_api_status: "{{ states('binary_sensor.tibber_price_api_status') }}"
+
+automation:
+  - id: tibber_watchdog
+    alias: Tibber watchdog
+    description: ""
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.tibber_unavailable
+        to: "on"
+        from: "off"
+    actions:
+      - repeat:
+          until:
+            - condition: state
+              entity_id: binary_sensor.tibber_unavailable
+              state: "off"
+          sequence:
+            - action: homeassistant.reload_config_entry
+              target:
+                device_id:
+                  - [device_id]
+            - wait_template: >-
+                {{ is_state('binary_sensor.tibber_unavailable', 'off') }}
+              timeout: "00:04:00"
+    mode: restart

@@ -1,0 +1,372 @@
+{#
+    'prices' format:
+        [{'<time_attribute>': '2025-08-29T00:00:00.000+02:00', '<price_attribute>': 1.25, ...},
+         {'<time_attribute>': '2025-08-29T01:00:00.000+02:00', '<price_attribute>': 1.21, ...},
+        ...]
+#}
+
+{% macro electricity_price_current(prices,
+    divider = 1,
+    add_vat = false,
+    additional_cost = 0,
+    hourly_pricing = true,
+    price_attribute = 'price',
+    time_attribute = 'start_time',
+    __is_nord_pool__ = false) %}
+
+    {# handle special parameters #}
+    {% if __is_nord_pool__ %}
+        {% set divider = 1000 %}
+        {% set add_vat = true %}
+        {% set additional_cost = states('sensor.nord_pool_additional_cost') | float %}
+        {% set time_attribute = 'start' %}
+    {% endif %}
+
+    {# handle parameters #}
+    {% set vat = 1 %}
+    {% if add_vat %}
+        {% set vat = 1 + (states('input_number.electricity_price_vat') | int * 0.01) %}
+    {% endif %}
+    {% set ns = namespace(prices=[], index=now().hour) %}
+
+    {# get current price #}
+    {% for i in prices %}
+        {% set time = i[time_attribute] | as_datetime | as_local %}
+        {% if time == today_at(now().strftime("%H:00")) %}
+            {% set ns.index = loop.index0 %}
+        {% endif %}
+        {% set price = i[price_attribute] / divider * vat + additional_cost %}
+        {% set ns.prices = ns.prices + [price | round(3, default=0)] %}
+    {% endfor %}
+
+    {# output result #}
+    {% if hourly_pricing %}
+        {{ ns.prices[ns.index] }}
+    {% else %}
+        {% set start_index = ns.index * 4 %}
+        {{ ns.prices[start_index:start_index + 4] | sum / 4 }}
+    {% endif %}
+
+{% endmacro %}
+
+{% macro electricity_price_avg(prices,
+    divider = 1,
+    add_vat = false,
+    additional_cost = 0,
+    hourly_pricing = true,
+    price_attribute = 'price',
+    time_attribute = 'start_time',
+    date = now().date(),
+    __is_nord_pool__ = false) %}
+
+    {# handle special parameters #}
+    {% if __is_nord_pool__ %}
+        {% set divider = 1000 %}
+        {% set add_vat = true %}
+        {% set additional_cost = states('sensor.nord_pool_additional_cost') | float %}
+        {% set time_attribute = 'start' %}
+    {% endif %}
+
+    {# handle parameters #}
+    {% set vat = 1 %}
+    {% if add_vat %}
+        {% set vat = 1 + (states('input_number.electricity_price_vat') | int * 0.01) %}
+    {% endif %}
+    {% set ns = namespace(prices=[]) %}
+
+    {# get prices for date #}
+    {% for i in prices %}
+        {% set time = i[time_attribute] | as_datetime | as_local %}
+        {% if date is none or time.date() == date %}
+            {% set ns.prices = ns.prices + [i] %}
+        {% endif %}
+    {% endfor %}
+
+    {# get average price #}
+    {% if ns.prices | length > 0 %}
+        {% set total_price = ns.prices | map(attribute=price_attribute) | sum / divider * vat %}
+        {% set avg_price = (total_price / ns.prices | length) + additional_cost %}
+        {{ avg_price | round(3, default=0) }}
+    {% endif %}
+
+{% endmacro %}
+
+{% macro electricity_price_format(prices,
+    divider = 1,
+    add_vat = false,
+    additional_cost = 0,
+    hourly_pricing = true,
+    price_attribute = 'price',
+    time_attribute = 'start_time',
+    date = now().date(),
+    raw = false,
+    as_list = false,
+    __is_nord_pool__ = false) %}
+
+    {# handle special parameters #}
+    {% if __is_nord_pool__ %}
+        {% set divider = 1000 %}
+        {% set add_vat = true %}
+        {% set additional_cost = states('sensor.nord_pool_additional_cost') | float %}
+        {% set time_attribute = 'start' %}
+    {% endif %}
+
+    {# handle parameters #}
+    {% set vat = 1 %}
+    {% if add_vat %}
+        {% set vat = 1 + (states('input_number.electricity_price_vat') | int * 0.01) %}
+    {% endif %}
+    {% set ns = namespace(prices=[], avg_prices=[]) %}
+
+    {# format prices for date #}
+    {% for i in prices %}
+        {% set time = i[time_attribute] | as_datetime | as_local %}
+        {% if date is none or time.date() == date %}
+            {% set price = i[price_attribute] / divider * vat + additional_cost %}
+            {% if as_list %}
+                {% set ns.prices = ns.prices + [price | round(3, default=0)] %}
+            {% else %}
+                {% set ns.prices = ns.prices + [{'start_time': time.isoformat(), 'price': price | round(3, default=0)}] %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+
+    {# output result #}
+    {% if hourly_pricing %}
+        {{ ns.prices }}
+    {% else %}
+        {% for i in range(0, ns.prices | length, 4) %}
+            {% if as_list %}
+                {% set ns.avg_prices = ns.avg_prices + [(ns.prices[i:i + 4] | sum / 4) | round(3, default=0)] %}
+            {% else %}
+                {% set ns.avg_prices = ns.avg_prices + [{'start_time': ns.prices[i].start_time, 'price': (ns.prices[i:i + 4] | map(attribute='price') | sum / 4 ) | round(3, default=0)}] %}
+            {% endif %}
+        {% endfor %}
+        {{ ns.avg_prices }}
+    {% endif %}
+
+{% endmacro %}
+
+{#
+    'prices' format:
+        [{'start_time': '2025-08-29T00:00:00.000+02:00', 'price': 1.25},
+         {'start_time': '2025-08-29T01:00:00.000+02:00', 'price': 1.21},
+        ...]
+#}
+
+{% macro electricity_price_current_is_outlier(prices,
+    price_threshold = none,
+    cheap = true,
+    number_of_hours = none,
+    date = now().date(),
+    hour = now().hour) %}
+
+    {# handle parameters #}
+    {% if price_threshold is none %}
+        {% set local_price_threshold = states('sensor.electricity_price_threshold') | float(0.5) %}
+    {% else  %}
+        {% set local_price_threshold = price_threshold %}
+    {% endif %}
+    {% if number_of_hours is none %}
+        {% if cheap %}
+            {% set local_number_of_hours = states('sensor.electricity_price_cheap_hours') | int(5) %}
+        {% else  %}
+            {% set local_number_of_hours = states('sensor.electricity_price_expensive_hours') | int(4) %}
+        {% endif  %}
+    {% else  %}
+        {% set local_number_of_hours = number_of_hours %}
+    {% endif %}
+    {% set ns = namespace(prices=[], hours=[], is_outlier=false) %}
+
+    {# get prices for date #}
+    {% if not prices is none %}
+        {% for i in prices %}
+            {% set time = i.start_time | as_datetime | as_local %}
+            {% if date is none or time.date() == date %}
+                {% set ns.prices = ns.prices + [i] %}
+            {% endif %}
+        {% endfor %}
+
+        {# select cheapest/most expensive hours #}
+        {% set sorted_hours = ns.prices | sort(attribute='price', reverse=(not cheap)) %}
+        {% for i in range(0, min(sorted_hours | length, local_number_of_hours)) %}
+            {% if cheap
+                or (not cheap
+                    and sorted_hours[i].price > local_price_threshold) %}
+                {% set ns.hours = ns.hours + [sorted_hours[i]] %}
+            {% endif %}
+        {% endfor %}
+        {% if cheap %}
+            {# select additional hours below price threshold #}
+            {% for i in range(min(sorted_hours | length, local_number_of_hours), ns.prices | length) %}
+                {% if sorted_hours[i].price <= local_price_threshold %}
+                    {% set ns.hours = ns.hours + [sorted_hours[i]] %}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        {% set ns.hours = ns.hours | sort(attribute='start_time') %}
+
+        {# output result #}
+        {% for i in range(0, ns.hours | length) %}
+            {% if (ns.hours[i].start_time | as_datetime | as_local).hour == hour %}
+                {% set ns.is_outlier = true %}
+                {% break %}
+            {% endif %}
+        {% endfor %}
+        {{ ns.is_outlier }}
+    {% endif %}
+
+{% endmacro %}
+
+{% macro electricity_price_outliers(prices,
+    price_threshold = none,
+    cheap = true,
+    number_of_hours = none,
+    date = now().date(),
+    filter = false,
+    cents = true,
+    for_html = false) %}
+
+    {# handle parameters #}
+    {% if price_threshold is none %}
+        {% set local_price_threshold = states('sensor.electricity_price_threshold') | float(0.5) %}
+    {% else  %}
+        {% set local_price_threshold = price_threshold %}
+    {% endif %}
+    {% if number_of_hours is none %}
+        {% if cheap %}
+            {% set local_number_of_hours = states('sensor.electricity_price_cheap_hours') | int(5) %}
+        {% else  %}
+            {% set local_number_of_hours = states('sensor.electricity_price_expensive_hours') | int(4) %}
+        {% endif  %}
+    {% else  %}
+        {% set local_number_of_hours = number_of_hours %}
+    {% endif %}
+    {% set ns = namespace(prices=[], hours=[]) %}
+
+    {# get prices for date #}
+    {% if not prices is none %}
+        {% for i in prices %}
+            {% set time = i.start_time | as_datetime | as_local %}
+            {% if (date is none or time.date() == date) %}
+                {% set ns.prices = ns.prices + [i] %}
+            {% endif %}
+        {% endfor %}
+
+        {# filter out hours in the past #}
+        {% set start_hour = 0 %}
+        {% if filter %}
+            {% set start_hour = now().hour %}
+        {% endif %}
+
+        {# select hours #}
+        {% set sorted_hours = ns.prices | sort(attribute='price', reverse=(not cheap)) %}
+        {% for i in range(0, min(sorted_hours | length, local_number_of_hours)) %}
+            {% if (sorted_hours[i].start_time | as_datetime | as_local).hour >= start_hour
+                and (cheap
+                    or (not cheap and sorted_hours[i].price > local_price_threshold)) %}
+                {% set ns.hours = ns.hours + [sorted_hours[i]] %}
+            {% endif %}
+        {% endfor %}
+        {% if cheap %}
+            {# select additional hours below price threshold #}
+            {% for i in range(min(sorted_hours | length, local_number_of_hours), ns.prices | length) %}
+                {% if (sorted_hours[i].start_time | as_datetime | as_local).hour >= start_hour
+                    and sorted_hours[i].price <= local_price_threshold %}
+                    {% set ns.hours = ns.hours + [sorted_hours[i]] %}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        {% set ns.hours = ns.hours | sort(attribute='start_time') %}
+
+        {# output result #}
+        {% if for_html %}
+            {# modify data for html use #}
+            {% for i in range(0, ns.hours | length) %}
+                {{- ((ns.hours[i].start_time | as_datetime | as_local).hour, (ns.hours[i].price * (100 if cents else 1)) | round((0 if cents else 3), default=0)) }}
+            {% endfor %}
+        {% else %}
+            {{ ns.hours }}
+        {% endif %}
+    {% endif %}
+
+{% endmacro %}
+
+{% macro electricity_price_minmax(prices,
+    min_price = none,
+    max_price = none,
+    date = now().date(),
+    filter = false,
+    cents = true,
+    for_html = false) %}
+
+    {# handle parameters #}
+    {% set ns = namespace(prices=[], hours=[]) %}
+
+    {# select hours above/below threashold(s) #}
+    {% if not prices is none %}
+        {% for i in prices %}
+            {% set time = i.start_time | as_datetime | as_local %}
+            {% if date is none or time.date() == date %}
+                {% set ns.prices = ns.prices + [i] %}
+            {% endif %}
+        {% endfor %}
+
+        {# filter out hours in the past #}
+        {% set start_hour = 0 %}
+        {% if filter %}
+            {% set start_hour = now().hour %}
+        {% endif %}
+
+        {# select hours #}
+        {% set sorted_hours = ns.prices | sort(attribute='start_time') %}
+        {% for i in range(0, ns.prices | length) %}
+            {% if (sorted_hours[i].start_time | as_datetime | as_local).hour >= start_hour
+                and ((  not min_price is none and     max_price is none and min_price <= sorted_hours[i].price)
+                    or (    min_price is none and not max_price is none and sorted_hours[i].price <= max_price)
+                    or (not min_price is none and not max_price is none and min_price <= sorted_hours[i].price <= max_price)) %}
+                {% set ns.hours = ns.hours + [sorted_hours[i]] %}
+            {% endif %}
+        {% endfor %}
+
+        {# output result #}
+        {% if for_html %}
+            {# modify data for html use #}
+            {% for i in range(0, ns.hours | length) %}
+                {{- ((ns.hours[i].start_time | as_datetime | as_local).hour, (ns.hours[i].price * (100 if cents else 1)) | round((0 if cents else 3), default=0)) }}
+            {% endfor %}
+        {% else %}
+            {{ ns.hours }}
+        {% endif %}
+    {% endif %}
+
+{% endmacro %}
+
+{#
+    'hours' format:
+        (00, 125)
+        (01, 121)
+        ...
+#}
+
+{%- macro electricity_price_html(hours,
+    delimit_start = false,
+    delimiter = '⦙',
+    separator = '•',
+    hour = now().hour) -%}
+
+    {%- set start_delimiter = '' -%}
+    {%- if delimit_start -%}
+        {%- set start_delimiter = '&nbsp;' ~ delimiter ~ '&nbsp;' -%}
+    {%- endif  -%}
+    {%- set html = hours
+        | trim | regex_replace('\ +', '')
+        | regex_replace('^\(', start_delimiter ~ ' <b>') | replace('\n', ' ' ~ separator ~ ' <b>')
+        | replace('(', '')
+        | replace(',', '</b>&nbsp;(') -%}
+    {%- if not hour is none -%}
+      {%- set html = html | regex_replace('<b>(' ~ hour ~ ')<\/b>&nbsp;\((\d+)\)', '<a><b>\\1</b>&nbsp;(\\2)</a>') -%}
+    {%- endif -%}
+    {{ html }}
+
+{%- endmacro -%}

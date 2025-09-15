@@ -43,8 +43,8 @@ script:
     sequence:
       - condition: template
         value_template: >
-          {{ entities | count > 0 }}
-      - service: zwave_js.multicast_set_value
+          {{ entities | length > 0 }}
+      - action: zwave_js.multicast_set_value
         data:
           command_class: 37
           endpoint: 0
@@ -77,8 +77,8 @@ script:
     sequence:
       - condition: template
         value_template: >
-          {{ entities | count > 0 }}
-      - service: zwave_js.multicast_set_value
+          {{ entities | length > 0 }}
+      - action: zwave_js.multicast_set_value
         data:
           command_class: 37
           endpoint: 0
@@ -119,8 +119,8 @@ script:
     sequence:
       - condition: template
         value_template: >
-          {{ entities | count > 0 }}
-      - service: zwave_js.multicast_set_value
+          {{ entities | length > 0 }}
+      - action: zwave_js.multicast_set_value
         data:
           command_class: 38
           endpoint: 1
@@ -154,8 +154,8 @@ script:
     sequence:
       - condition: template
         value_template: >
-          {{ entities | count > 0 }}
-      - service: zwave_js.multicast_set_value
+          {{ entities | length > 0 }}
+      - action: zwave_js.multicast_set_value
         data:
           command_class: 38
           endpoint: 1

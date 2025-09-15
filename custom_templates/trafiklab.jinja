@@ -1,0 +1,24 @@
+{% macro departure(index, value_json) %}
+
+    {% set departure = 0000000000.00000 | as_datetime | as_local %}
+    {% set departure_date = (value_json['Departure'] | default([])) | map(attribute='date') | list %}
+    {% set departure_time = (value_json['Departure'] | default([])) | map(attribute='time') | list %}
+    {% if (departure_time | length) > index %}
+        {% set departure = (departure_date[index] + 'T' + departure_time[index]) | as_datetime(now().min) | as_local %}
+    {% endif %}
+    {{ departure }}
+
+{% endmacro %}
+
+{% macro departure_time(entity_id) %}
+
+    {% set departure_time = states(entity_id) | as_datetime | as_local %}
+    {% if now() < departure_time %}
+        {% set future_time = departure_time %}
+        {% set time_distance = future_time - now() %}
+        In {{ relative_time(now() - time_distance) }}
+    {% else %}
+        {{ departure_time | relative_time }} ago
+    {% endif %}
+
+{% endmacro %}

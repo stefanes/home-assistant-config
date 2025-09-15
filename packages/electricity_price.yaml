@@ -1,0 +1,216 @@
+#requires packages/nord_pool.yaml
+#requires packages/tibber.yaml
+
+input_number:
+  # set to e.g. 5 hours
+  electricity_price_cheap_hours:
+    name: Electricity price cheap hours
+    min: 1
+    max: 24
+    step: 1
+    mode: box
+    unit_of_measurement: hours
+    icon: mdi:clock-end
+
+  # set to e.g. 4 hours
+  electricity_price_expensive_hours:
+    name: Electricity price expensive hours
+    min: 1
+    max: 24
+    step: 1
+    mode: box
+    unit_of_measurement: hours
+    icon: mdi:clock-end
+
+  # set to e.g. 50 öre/kWh
+  electricity_price_threshold:
+    name: Electricity price threshold
+    min: 0
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: öre/kWh
+    icon: mdi:cash-multiple
+
+  # set to e.g. 25%
+  electricity_price_vat:
+    name: Electricity price VAT
+    min: 0
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:cash-marker
+
+input_select:
+  # select source sensor (using Tibber by default)
+  electricity_price_sensor:
+    name: Electricity price sensor
+    options:
+      - sensor.tibber_price
+      - sensor.nord_pool_price
+    icon: mdi:apple-keyboard-option
+
+template:
+  - sensor:
+      - name: Electricity price
+        state: >
+          {% set sensor = states('input_select.electricity_price_sensor') %}
+          {{ states(sensor) }}
+        unit_of_measurement: SEK/kWh
+        state_class: total
+        device_class: monetary
+        unique_id: electricity_price
+        icon: mdi:cash-multiple
+        availability: >
+          {% set sensor = states('input_select.electricity_price_sensor') %}
+          {{ has_value(sensor) }}
+        attributes:
+          sensor: "{{ states('input_select.electricity_price_sensor') }}"
+          sensor_updated_by: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'sensor_updated_by') }}
+          avg_price: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'avg_price') }}
+          price_percent_to_average: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'price_percent_to_average') }}
+          price_above_average: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'price_above_average') }}
+          price_level: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'price_level') }}
+          today: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'today') }}
+          tomorrow: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'tomorrow') }}
+          tomorrow_avg_price: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'tomorrow_avg_price') }}
+          prices: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'prices') }}
+
+      - name: Electricity price threshold
+        state: >
+          {% if is_state('input_boolean.away_mode', 'on') %}
+            {{ 0 }}
+          {% else %}
+            {{ states('input_number.electricity_price_threshold') | int * 0.01 }}
+          {% endif %}
+        unit_of_measurement: SEK/kWh
+        state_class: total
+        device_class: monetary
+        unique_id: electricity_price_threshold
+        icon: mdi:cash-multiple
+        attributes:
+          electricity_price_threshold: "{{ states('input_number.electricity_price_threshold') | int * 0.01 }}"
+          away_mode: "{{ states('input_boolean.away_mode') }}"
+
+      - name: Electricity price cheap hours
+        state: >
+          {% if is_state('input_boolean.away_mode', 'on') %}
+            {{ (states('input_number.electricity_price_cheap_hours') | int / 2) | round(0, 'ceil') }}
+          {% else %}
+            {{ states('input_number.electricity_price_cheap_hours') | int }}
+          {% endif %}
+        unit_of_measurement: hours
+        unique_id: electricity_price_cheap_hours
+        icon: mdi:clock-end
+        attributes:
+          electricity_price_cheap_hours: "{{ states('input_number.electricity_price_cheap_hours') }}"
+          away_mode: "{{ states('input_boolean.away_mode') }}"
+
+      - name: Electricity price expensive hours
+        state: >
+          {% if is_state('input_boolean.away_mode', 'on') %}
+            {{ (states('input_number.electricity_price_expensive_hours') | int * 2) | round(0, 'floor') }}
+          {% else %}
+            {{ states('input_number.electricity_price_expensive_hours') | int }}
+          {% endif %}
+        unit_of_measurement: hours
+        unique_id: electricity_price_expensive_hours
+        icon: mdi:clock-end
+        attributes:
+          electricity_price_expensive_hours: "{{ states('input_number.electricity_price_expensive_hours') }}"
+          away_mode: "{{ states('input_boolean.away_mode') }}"
+
+  - binary_sensor:
+      - name: Electricity price above average
+        state: >
+          {% set sensor = states('input_select.electricity_price_sensor') %}
+          {{ state_attr(sensor, 'price_above_average') | bool }}
+        delay_on: 0:00:30
+        delay_off: 0:00:30
+        device_class: power
+        unique_id: electricity_price_above_average
+        availability: >
+          {% set sensor = states('input_select.electricity_price_sensor') %}
+          {{ has_value(sensor) }}
+        attributes:
+          sensor: >
+            {{ states('input_select.electricity_price_sensor') }}
+          avg_price: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'avg_price') }}
+          price_percent_to_average: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'price_percent_to_average') | round(0) }}%
+
+      - name: Electricity price cheap
+        state: >
+          {% set sensor = states('input_select.electricity_price_sensor') %}
+          {{ is_state('binary_' + sensor + '_cheap', 'on') }}
+        delay_on: 0:00:30
+        delay_off: 0:00:30
+        device_class: power
+        unique_id: electricity_price_cheap
+        availability: >
+          {% set sensor = states('input_select.electricity_price_sensor') %}
+          {{ has_value('binary_' + sensor + '_cheap') }}
+        attributes:
+          sensor: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ 'binary_' + sensor + '_cheap' }}
+          price_cheap: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ states('binary_' + sensor + '_cheap') }}
+          today: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr('binary_' + sensor + '_cheap', 'today') }}
+          tomorrow: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr('binary_' + sensor + '_cheap', 'tomorrow') }}
+          electricity_price_threshold: "{{ states('sensor.electricity_price_threshold') }}"
+          electricity_price_cheap_hours: "{{ states('sensor.electricity_price_cheap_hours') }}"
+
+      - name: Electricity price expensive
+        state: >
+          {% set sensor = states('input_select.electricity_price_sensor') %}
+          {{ is_state('binary_' + sensor + '_expensive', 'on') }}
+        delay_on: 0:00:30
+        delay_off: 0:00:30
+        device_class: power
+        unique_id: electricity_price_expensive
+        availability: >
+          {% set sensor = states('input_select.electricity_price_sensor') %}
+          {{ has_value('binary_' + sensor + '_expensive') }}
+        attributes:
+          sensor: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ 'binary_' + sensor + '_expensive' }}
+          price_expensive: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ states('binary_' + sensor + '_expensive') }}
+          today: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr('binary_' + sensor + '_expensive', 'today') }}
+          tomorrow: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr('binary_' + sensor + '_expensive', 'tomorrow') }}
+          electricity_price_threshold: "{{ states('sensor.electricity_price_threshold') }}"
+          electricity_price_expensive_hours: "{{ states('sensor.electricity_price_expensive_hours') }}"

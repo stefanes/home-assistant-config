@@ -4,29 +4,29 @@ template:
         state: >
           {{ is_state('binary_sensor.z_wave_js_ui_running', 'on')
             and states('sensor.alive_z_wave_devices') | int(0) > 0 }}
-        delay_on: 0:05:00 # turn on after 5 minutes to allow time for loading nodes
+        delay_on: 0:02:00 # turn on after 2 minutes to allow time for loading nodes
         icon: mdi:z-wave
         device_class: running
         unique_id: z_wave_addon_up_and_running
 
   - trigger:
-      - platform: time_pattern
-        seconds: "/10"
+      - trigger: time_pattern
+        seconds: /30
     sensor:
       - name: Dead Z-Wave devices
         icon: mdi:z-wave
         state: >
           {% if this.attributes.entity_id != none %}
-            {{ this.attributes.entity_id | count }}
+            {{ this.attributes.entity_id | length }}
           {% else %}
-            {# No dead devices identified #}
+            {# no dead devices identified #}
             0
           {% endif %}
         unit_of_measurement: entities
         unique_id: dead_z_wave_devices
         attributes:
           entity_id: >-
-            {% set nodes = integration_entities('zwave_js') | select('match', 'sensor\..*node_status') | select('is_state', ['dead', 'unavailable', 'unknown']) | list %}
+            {% set nodes = integration_entities('zwave_js') | select('match', 'sensor\..*_node_status') | select('is_state', ['dead', 'unavailable', 'unknown']) | list %}
             {% set ns = namespace(buttons=[]) %}
             {% for e in nodes %}
               {% set device_id = device_id(e) %}
@@ -39,17 +39,16 @@ template:
         icon: mdi:z-wave
         state: >
           {% if this.attributes.entity_id != none %}
-            {{ this.attributes.entity_id | count }}
+            {{ this.attributes.entity_id | length }}
           {% else %}
-            {# No alive devices identified #}
+            {# no alive devices identified #}
             0
           {% endif %}
         unit_of_measurement: entities
         unique_id: alive_z_wave_devices
         attributes:
           entity_id: >-
-            {% set nodes = integration_entities('zwave_js') | select('match', 'sensor\..*node_status') | select('is_state', ['alive']) | list %}
-            {{ nodes }}
+            {{ integration_entities('zwave_js') | select('match', 'sensor\..*_node_status') | select('is_state', ['alive']) | list }}
 
 input_boolean:
   enable_z_wave_problem_detection:
@@ -65,8 +64,8 @@ script:
     sequence:
       - condition: template
         value_template: >
-          {{ integration_entities('zwave_js') | select('match', 'button\..*_ping') | list | count > 0 }}
-      - service: button.press
+          {{ integration_entities('zwave_js') | select('match', 'button\..*_ping') | list | length > 0 }}
+      - action: button.press
         target:
           entity_id: >
             {{ integration_entities('zwave_js') | select('match', 'button\..*_ping') | list }}
@@ -77,7 +76,7 @@ script:
     icon: mdi:z-wave
     description: Trigger all automations involving Z-Wave devices
     sequence:
-      - service: automation.trigger
+      - action: automation.trigger
         data:
           skip_condition: false
         target:
@@ -90,15 +89,13 @@ automation:
   - id: ping_dead_z_wave_devices
     alias: Ping dead Z-Wave devices
     description: ""
-    trigger:
-      - platform: state
+    triggers:
+      - trigger: state
         entity_id: sensor.dead_z_wave_devices
-        for:
-          seconds: 10
-      - platform: state
+      - trigger: state
         entity_id: binary_sensor.z_wave_addon_up_and_running
         to: "on"
-    condition:
+    conditions:
       - condition: state
         entity_id: input_boolean.enable_z_wave_problem_detection
         state: "on"
@@ -108,19 +105,19 @@ automation:
       - condition: template
         value_template: >
           {{ states('sensor.dead_z_wave_devices') | int(0) > 0 }}
-    action:
+    actions:
       - repeat:
           until:
             - condition: numeric_state
               entity_id: sensor.dead_z_wave_devices
               below: 1
           sequence:
-            - service: button.press
+            - action: button.press
               target:
                 entity_id: "{{ state_attr('sensor.dead_z_wave_devices', 'entity_id') }}"
-            # cool down period to avoid flooding network
-            - delay:
-                seconds: 30
+            - wait_template: >-
+                {{ states('sensor.dead_z_wave_devices') | int < 1 }}
+              timeout: "00:00:30"
     mode: restart
     trace:
       stored_traces: 20
@@ -128,10 +125,10 @@ automation:
   - id: dead_z_wave_device_back
     alias: Z-Wave devices back from the dead
     description: ""
-    trigger:
-      - platform: state
+    triggers:
+      - trigger: state
         entity_id: sensor.dead_z_wave_devices
-    condition:
+    conditions:
       - condition: state
         entity_id: input_boolean.enable_z_wave_problem_detection
         state: "on"
@@ -141,8 +138,8 @@ automation:
       - condition: template
         value_template: >
           {{ trigger.from_state.state | int(0) > trigger.to_state.state | int(0) }}
-    action:
-      - service: script.trigger_all_z_wave_automations
+    actions:
+      - action: script.trigger_all_z_wave_automations
     mode: restart
     trace:
       stored_traces: 20
@@ -150,12 +147,12 @@ automation:
   - id: z_wave_error_detected
     alias: Z-Wave error detected
     description: ""
-    trigger:
-      - platform: event
+    triggers:
+      - trigger: event
         event_type: system_log_event
         event_data:
           level: ERROR
-    condition:
+    conditions:
       - condition: state
         entity_id: input_boolean.enable_z_wave_problem_detection
         state: "on"
@@ -178,15 +175,11 @@ automation:
         conditions:
           - condition: template
             value_template: >
-              {{ 'Task exception was never retrieved' in (trigger.event.data.message | join('|')) }}
-          - condition: template
-            value_template: >
               {{ 'While executing automation' in (trigger.event.data.message | join('|')) }}
-    action:
-      # cool down period if there are multiple, related, errors in log
+    actions:
       - delay:
-          seconds: 30
-      - service: script.trigger_all_z_wave_automations
+          seconds: 30 # cool down period if there are multiple, related, errors in log
+      - action: script.trigger_all_z_wave_automations
     mode: restart
     trace:
       stored_traces: 20
@@ -194,34 +187,34 @@ automation:
   - id: z_wave_addon_restart
     alias: Z-Wave addon restart
     description: ""
-    trigger:
-      - platform: numeric_state
+    triggers:
+      - trigger: numeric_state
         entity_id: sensor.alive_z_wave_devices
         below: 1
         for:
           minutes: 10
-    condition:
+    conditions:
       - condition: state
         entity_id: input_boolean.enable_z_wave_problem_detection
         state: "on"
-    action:
-      - service: hassio.addon_restart
+    actions:
+      - action: hassio.addon_restart
         data:
           addon: a0d7b954_zwavejs2mqtt
     mode: single
 
   - id: z_wave_addon_startup
-    alias: Z-Wave addon startup
+    alias: Z-Wave addon start-up
     description: ""
-    trigger:
-      - platform: state
+    triggers:
+      - trigger: state
         entity_id: binary_sensor.z_wave_addon_up_and_running
         to: "on"
         from: "off"
-    condition:
+    conditions:
       - condition: state
         entity_id: input_boolean.enable_z_wave_problem_detection
         state: "on"
-    action:
-      - service: script.trigger_all_z_wave_automations
+    actions:
+      - action: script.trigger_all_z_wave_automations
     mode: single
