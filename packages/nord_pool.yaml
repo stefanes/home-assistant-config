@@ -16,8 +16,8 @@
 #endregion
 
 input_number:
-  # (optional) set to additional cost on top of spot price (excl. VAT)
-  # if using Nord Pool as the source sensor for electricity price
+  # TODO (optional): set to additional cost on top of spot price (excl.
+  # VAT) if using Nord Pool as the source sensor for electricity price
   nord_pool_additional_cost:
     name: Nord Pool additional cost
     min: 0.0

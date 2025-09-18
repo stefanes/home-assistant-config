@@ -2,7 +2,7 @@
 #requires packages/tibber.yaml
 
 input_number:
-  # set to e.g. 5 hours
+  # TODO: set to e.g. 5 hours
   electricity_price_cheap_hours:
     name: Electricity price cheap hours
     min: 1
@@ -12,7 +12,7 @@ input_number:
     unit_of_measurement: hours
     icon: mdi:clock-end
 
-  # set to e.g. 4 hours
+  # TODO: set to e.g. 4 hours
   electricity_price_expensive_hours:
     name: Electricity price expensive hours
     min: 1
@@ -22,7 +22,7 @@ input_number:
     unit_of_measurement: hours
     icon: mdi:clock-end
 
-  # set to e.g. 50 öre/kWh
+  # TODO: set to e.g. 50 öre/kWh
   electricity_price_threshold:
     name: Electricity price threshold
     min: 0
@@ -32,7 +32,7 @@ input_number:
     unit_of_measurement: öre/kWh
     icon: mdi:cash-multiple
 
-  # set to e.g. 25%
+  # TODO: set to e.g. 25%
   electricity_price_vat:
     name: Electricity price VAT
     min: 0
@@ -43,7 +43,7 @@ input_number:
     icon: mdi:cash-marker
 
 input_select:
-  # select source sensor (using Tibber by default)
+  # TODO: select source sensor (using Tibber by default)
   electricity_price_sensor:
     name: Electricity price sensor
     options:
