@@ -29,8 +29,8 @@ Centrally define your own Jinja2 macros and import and use them anywhere in Home
 
 ### Device Id
 
-You can get the device Id by navigating to **Settings > Devices & Services > Devices**, selecting the device, and copying the last part of the URL (`.../config/devices/device/[device_id]`).
+You can get the `device_id` by navigating to **Settings > Devices & Services > Devices**, selecting the device, and copying the last part of the URL (`.../config/devices/device/[device_id]`).
 
 ### Config Entry Id
 
-You can get the config entry Id by navigating to **Settings > Devices & Services > Entities**, selecting one of the entities belonging to the integration, selecting **... > Related > Integration** and copying the last part of the URL (`.../config/integrations/integration/<integration>#config_entry=[config_entry_id]`).
+You can get the `config_entry_id` by navigating to **Settings > Devices & Services > Entities**, selecting one of the entities belonging to the integration, selecting **... > Related > Integration** and copying the last part of the URL (`.../config/integrations/integration/<integration>#config_entry=[config_entry_id]`).
