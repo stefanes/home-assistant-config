@@ -3,9 +3,9 @@
 
 #region Nord Pool
 # docs: https://www.home-assistant.io/integrations/nordpool
-# device: [device_id]                                                   <-- TODO: replace all occurrences with your device id
-# sensor: sensor.nord_pool_[area]_current_price                         <-- TODO: replace all occurrences with name of your sensor
-# config_entry: [config_entry_id]                                       <-- TODO: replace all occurrences with your config entry id
+# device: [device_id]                                                   <-- TODO: replace all occurrences with your device id (see README.md)
+# sensor: sensor.nord_pool_se4_current_price                            <-- TODO: replace all occurrences with name of your sensor for your area
+# config_entry: [config_entry_id]                                       <-- TODO: replace all occurrences with your config entry id (see README.md)
 # setup:
 #   Electricity price -┬-------------> nord_pool_additional_cost --------┐
 #                      |                                                 |
@@ -64,9 +64,10 @@ template:
           date: "{{ now().date() + timedelta(days=1) }}"
         response_variable: tomorrow_prices
     sensor:
+      # TODO: replace all occurrences of 'SE4' below with name of your area
       - name: Nord Pool price API
-        state: &today_start >
-          {{ (today_prices.SE4[0].start | as_datetime(now().min)).isoformat() }}
+        state: &start >
+          {{ (today_prices.SE4[0].start | as_datetime(now().min|as_local)).isoformat() }}
         device_class: timestamp
         unique_id: nord_pool_price_api
         icon: mdi:api
@@ -75,11 +76,15 @@ template:
         attributes:
           sensor_updated_by: >
             {{ trigger.id | replace('_', ' ') | title }} at {{ now().strftime('%H:%M:%S') }}
-          today_start: *today_start
-          tomorrow_start: >
-            {% if tomorrow_prices is mapping and tomorrow_prices.SE4 | length > 0 %}
-              {{ (tomorrow_prices.SE4[0].start | as_datetime(now().min)).isoformat() }}
-            {% endif %}
+          start: *start
+          end: >
+            {% set prices = today_prices.SE4 + tomorrow_prices.SE4 %}
+            {{ (prices[-1].end | as_datetime(now().min|as_local)).isoformat() }}
+          hourly_pricing: >
+            {% set prices = today_prices.SE4 %}
+            {% set diff = (prices[1].start | as_datetime(now().min|as_local)
+              - prices[0].start | as_datetime(now().min|as_local)).total_seconds() %}
+            {{ diff == 3600 }}
           prices: >
             {{ today_prices.SE4 + tomorrow_prices.SE4 }}
 
@@ -201,7 +206,10 @@ template:
           {% set additional_cost = states('input_number.nord_pool_additional_cost') | float * 0.01 %}
 
           {% if states('input_select.electricity_price_sensor') != 'sensor.nord_pool_price' %}
-            {# default to current sensor state #}
+            {#
+              default to current sensor state
+              https://community.home-assistant.io/t/this-state-in-template-sensor-not-working-at-all/857176/7
+            #}
             {% set additional_cost = this.state
               if not this is none
                 and this.state is defined
@@ -209,12 +217,12 @@ template:
               else additional_cost %}
 
             {% if has_value('sensor.electricity_price')
-              and has_value('sensor.nord_pool_[area]_current_price')
-              and (states.sensor.nord_pool_[area]_current_price.last_updated | as_local).hour
+              and has_value('sensor.nord_pool_se4_current_price')
+              and (states.sensor.nord_pool_se4_current_price.last_updated | as_local).hour
                 == (states.sensor.electricity_price.last_updated | as_local).hour %}
               {% set vat = 1 + (states('input_number.electricity_price_vat') | int * 0.01) %}
               {% set additional_cost = states('sensor.electricity_price') | float
-                - states('sensor.nord_pool_[area]_current_price') | float * vat %}
+                - states('sensor.nord_pool_se4_current_price') | float * vat %}
             {% endif %}
           {% endif %}
 
@@ -230,20 +238,19 @@ template:
           electricity_price: "{{ states('sensor.electricity_price') }}"
           electricity_price_last_updated: "{{ states.sensor.electricity_price.last_updated | as_local }}"
           nord_pool_se4_current_price: >
-            {% if has_value('sensor.nord_pool_[area]_current_price') %}
+            {% if has_value('sensor.nord_pool_se4_current_price') %}
               {% set vat = 1 + (states('input_number.electricity_price_vat') | int * 0.01) %}
-              {{ (states('sensor.nord_pool_[area]_current_price') | float * vat) | round(3, default=0) }}
+              {{ (states('sensor.nord_pool_se4_current_price') | float * vat) | round(3, default=0) }}
             {% endif %}
-          nord_pool_se4_current_price_last_updated: "{{ states.sensor.nord_pool_[area]_current_price.last_updated | as_local }}"
+          nord_pool_se4_current_price_last_updated: "{{ states.sensor.nord_pool_se4_current_price.last_updated | as_local }}"
           nord_pool_additional_cost: "{{ (states('input_number.nord_pool_additional_cost') | float * 0.01) | round(3, default=0) }}"
 
   - binary_sensor:
       - name: Nord Pool price API status
         state: &todays_prices_available >
-          {% set today_start = (states('sensor.nord_pool_price_api') | as_datetime(now().min) | as_local).date() %}
-          {% set tomorrow_start = (state_attr('sensor.nord_pool_price_api', 'tomorrow_start') | as_datetime(now().min) | as_local).date() %}
-          {{ today_start == now().date()
-              or tomorrow_start == now().date() }}
+          {% set start = state_attr('sensor.nord_pool_price_api', 'start') | as_datetime(now().min|as_local) %}
+          {% set end = state_attr('sensor.nord_pool_price_api', 'end') | as_datetime(now().min|as_local) %}
+          {{ start < now() < end }}
         device_class: connectivity
         unique_id: nord_pool_price_api_status
         availability: >
@@ -251,10 +258,19 @@ template:
         attributes:
           todays_prices_available: *todays_prices_available
           tomorrows_prices_available: >
-            {% set tomorrow_start = (state_attr('sensor.nord_pool_price_api', 'tomorrow_start') | as_datetime(now().min) | as_local).date() %}
-            {{ tomorrow_start == now().date() + timedelta(days=1) }}
-          nord_pool_price_api_today_start: "{{ state_attr('sensor.nord_pool_price_api', 'today_start') }}"
-          nord_pool_price_api_tomorrow_start: "{{ state_attr('sensor.nord_pool_price_api', 'tomorrow_start') }}"
+            {% set end = state_attr('sensor.nord_pool_price_api', 'end') | as_datetime(now().min|as_local) %}
+            {{ end == today_at() + timedelta(days=2) }}
+          current_price_index: >
+            {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
+            {% for i in prices %}
+                {% set time = i.start | as_datetime | as_local %}
+                {% if time == today_at(now().strftime("%H:00")) %}
+                  {{ loop.index0 }}
+                  {% break %}
+                {% endif %}
+            {% endfor %}
+          nord_pool_price_api_start: "{{ state_attr('sensor.nord_pool_price_api', 'start') }}"
+          nord_pool_price_api_end: "{{ state_attr('sensor.nord_pool_price_api', 'end') }}"
 
       - name: Nord Pool price cheap
         state: >
@@ -306,14 +322,14 @@ template:
       - name: Nord Pool unavailable
         state: >
           {{ not (
-            has_value('sensor.nord_pool_[area]_current_price')
+            has_value('sensor.nord_pool_se4_current_price')
             and has_value('sensor.nord_pool_price_api')
             and is_state('binary_sensor.nord_pool_price_api_status', 'on')) }}
         delay_on: 0:02:00 # turn on if problem persists for 2 minutes
         device_class: problem
         unique_id: nord_pool_unavailable
         attributes:
-          nord_pool_se4_current_price: "{{ states('sensor.nord_pool_[area]_current_price') }}"
+          nord_pool_se4_current_price: "{{ states('sensor.nord_pool_se4_current_price') }}"
           nord_pool_price_api: "{{ states('sensor.nord_pool_price_api') }}"
           nord_pool_price_api_status: "{{ states('binary_sensor.nord_pool_price_api_status') }}"
 

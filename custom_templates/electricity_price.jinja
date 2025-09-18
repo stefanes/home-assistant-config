@@ -19,6 +19,7 @@
         {% set divider = 1000 %}
         {% set add_vat = true %}
         {% set additional_cost = states('sensor.nord_pool_additional_cost') | float %}
+        {% set hourly_pricing = state_attr('sensor.nord_pool_price_api', 'hourly_pricing') | bool %}
         {% set time_attribute = 'start' %}
     {% endif %}
 
@@ -64,6 +65,7 @@
         {% set divider = 1000 %}
         {% set add_vat = true %}
         {% set additional_cost = states('sensor.nord_pool_additional_cost') | float %}
+        {% set hourly_pricing = state_attr('sensor.nord_pool_price_api', 'hourly_pricing') | bool %}
         {% set time_attribute = 'start' %}
     {% endif %}
 
@@ -108,6 +110,7 @@
         {% set divider = 1000 %}
         {% set add_vat = true %}
         {% set additional_cost = states('sensor.nord_pool_additional_cost') | float %}
+        {% set hourly_pricing = state_attr('sensor.nord_pool_price_api', 'hourly_pricing') | bool %}
         {% set time_attribute = 'start' %}
     {% endif %}
 

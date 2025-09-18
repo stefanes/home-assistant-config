@@ -3,7 +3,7 @@
 
 #region Tibber
 # docs: https://www.home-assistant.io/integrations/tibber
-# device: [device_id]                                                   <-- TODO: replace all occurrences with your device id
+# device: [device_id]                                                   <-- TODO: replace all occurrences with your device id (see README.md)
 # sensor: sensor.electricity_price_tibber
 # setup:
 #   Tibber ┬-[schedule]--> tibber_price_api -┬-[schedule]--> tibber_price -┬--> tibber_price_cheap
@@ -50,8 +50,8 @@ template:
         response_variable: tomorrow_prices
     sensor:
       - name: Tibber price API
-        state: &today_start >
-          {{ ((today_prices.prices.values() | first)[0].start_time | as_datetime(now().min)).isoformat() }}
+        state: &start >
+          {{ ((today_prices.prices.values() | first)[0].start_time | as_datetime(now().min|as_local)).isoformat() }}
         device_class: timestamp
         unique_id: tibber_price_api
         icon: mdi:api
@@ -60,11 +60,14 @@ template:
         attributes:
           sensor_updated_by: >
             {{ trigger.id | replace('_', ' ') | title }} at {{ now().strftime('%H:%M:%S') }}
-          today_start: *today_start
-          tomorrow_start: >
-            {% if tomorrow_prices is mapping and tomorrow_prices.prices.values() | first | length > 0 %}
-              {{ ((tomorrow_prices.prices.values() | first)[0].start_time | as_datetime(now().min)).isoformat() }}
-            {% endif %}
+          start: *start
+          end: >
+            {% set prices = today_prices.prices.values() | first + tomorrow_prices.prices.values() | first %}
+            {% set diff = (prices[1].start_time | as_datetime(now().min|as_local)
+              - prices[0].start_time | as_datetime(now().min|as_local)).total_seconds() %}
+            {{ (prices[-1].start_time | as_datetime(now().min|as_local) + timedelta(seconds=diff)).isoformat() }}
+          hourly_pricing: >
+            {{ true }}
           prices: >
             {{ today_prices.prices.values() | first + tomorrow_prices.prices.values() | first }}
 
@@ -165,10 +168,9 @@ template:
   - binary_sensor:
       - name: Tibber price API status
         state: &todays_prices_available >
-          {% set today_start = (states('sensor.tibber_price_api') | as_datetime(now().min) | as_local).date() %}
-          {% set tomorrow_start = (state_attr('sensor.tibber_price_api', 'tomorrow_start') | as_datetime(now().min) | as_local).date() %}
-          {{ today_start == now().date()
-              or tomorrow_start  == now().date() }}
+          {% set start = state_attr('sensor.tibber_price_api', 'start') | as_datetime(now().min|as_local) %}
+          {% set end = state_attr('sensor.tibber_price_api', 'end') | as_datetime(now().min|as_local) %}
+          {{ start < now() < end }}
         device_class: connectivity
         unique_id: tibber_price_api_status
         availability: >
@@ -176,10 +178,19 @@ template:
         attributes:
           todays_prices_available: *todays_prices_available
           tomorrows_prices_available: >
-            {% set tomorrow_start = (state_attr('sensor.tibber_price_api', 'tomorrow_start') | as_datetime(now().min) | as_local).date() %}
-            {{ tomorrow_start == now().date() + timedelta(days=1) }}
-          tibber_price_api_today_start: "{{ state_attr('sensor.tibber_price_api', 'today_start') }}"
-          tibber_price_api_tomorrow_start: "{{ state_attr('sensor.tibber_price_api', 'tomorrow_start') }}"
+            {% set end = state_attr('sensor.tibber_price_api', 'end') | as_datetime(now().min|as_local) %}
+            {{ end == today_at() + timedelta(days=2) }}
+          current_price_index: >
+            {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% for i in prices %}
+                {% set time = i.start_time | as_datetime | as_local %}
+                {% if time == today_at(now().strftime("%H:00")) %}
+                  {{ loop.index0 }}
+                  {% break %}
+                {% endif %}
+            {% endfor %}
+          tibber_price_api_start: "{{ state_attr('sensor.tibber_price_api', 'start') }}"
+          tibber_price_api_end: "{{ state_attr('sensor.tibber_price_api', 'end') }}"
 
       - name: Tibber price cheap
         state: >
