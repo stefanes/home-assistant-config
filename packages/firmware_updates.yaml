@@ -1,0 +1,61 @@
+template:
+  - trigger:
+      - trigger: time_pattern
+        seconds: /30
+    sensor:
+      - name: Shelly firmware updates
+        icon: mdi:update
+        state: >
+          {% if this.attributes.entity_id != none %}
+            {{ this.attributes.entity_id | length }}
+          {% else %}
+            {# no updates found #}
+            0
+          {% endif %}
+        unit_of_measurement: entities
+        unique_id: shelly_firmware_updates
+        attributes:
+          entity_id: >-
+            {{ integration_entities('shelly') | select('match', 'update\..*_firmware') | select('is_state', ['on']) | list }}
+
+      - name: ESPHome firmware updates
+        icon: mdi:update
+        state: >
+          {% if this.attributes.entity_id != none %}
+            {{ this.attributes.entity_id | length }}
+          {% else %}
+            {# no updates found #}
+            0
+          {% endif %}
+        unit_of_measurement: entities
+        unique_id: esphome_firmware_updates
+        attributes:
+          entity_id: >-
+            {{ integration_entities('esphome') | select('match', 'update\..*_firmware') | select('is_state', ['on']) | list }}
+
+script:
+  update_all_shelly_devices:
+    alias: Update all Shelly devices
+    icon: mdi:file-upload
+    description: Update all Shelly devices to the latest firmware
+    sequence:
+      - condition: numeric_state
+        entity_id: sensor.shelly_firmware_updates
+        above: 0
+      - action: update.install
+        target:
+          entity_id: "{{ state_attr('sensor.shelly_firmware_updates', 'entity_id') }}"
+    mode: single
+
+  update_all_esphome_devices:
+    alias: Update all ESPHome devices
+    icon: mdi:file-upload
+    description: Update all ESPHome devices to the latest firmware
+    sequence:
+      - condition: numeric_state
+        entity_id: sensor.esphome_firmware_updates
+        above: 0
+      - action: update.install
+        target:
+          entity_id: "{{ state_attr('sensor.esphome_firmware_updates', 'entity_id') }}"
+    mode: single
