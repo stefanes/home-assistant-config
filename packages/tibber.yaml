@@ -64,10 +64,12 @@ template:
           end: >
             {% set prices = today_prices.prices.values() | first + tomorrow_prices.prices.values() | first %}
             {% set diff = (prices[1].start_time | as_datetime(now().min|as_local)
-              - prices[0].start_time | as_datetime(now().min|as_local)).total_seconds() %}
+              - prices[0].start_time | as_datetime(now().min|as_local)).total_seconds() | int %}
             {{ (prices[-1].start_time | as_datetime(now().min|as_local) + timedelta(seconds=diff)).isoformat() }}
-          hourly_pricing: >
-            {{ true }}
+          interval: >
+            {% set prices = today_prices.prices.values() | first %}
+            {{ (prices[1].start_time | as_datetime(now().min|as_local)
+              - prices[0].start_time | as_datetime(now().min|as_local)).total_seconds() | int }}
           prices: >
             {{ today_prices.prices.values() | first + tomorrow_prices.prices.values() | first }}
 
@@ -85,8 +87,10 @@ template:
       - name: Tibber price
         state: >
           {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+          {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
           {% from 'electricity_price.jinja' import electricity_price_current %}
-          {% set current_price = electricity_price_current(prices) %}
+          {% set current_price = electricity_price_current(prices,
+            span = span) %}
           {{ current_price }}
         unit_of_measurement: SEK/kWh
         state_class: total
@@ -105,21 +109,27 @@ template:
             {{ avg_price }}
           price_percent_to_average: >
             {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
             {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg %}
-            {% set current_price = electricity_price_current(prices) | float %}
+            {% set current_price = electricity_price_current(prices,
+              span = span) | float %}
             {% set avg_price = electricity_price_avg(prices) | float %}
             {% set price_percent_to_average = ((current_price / avg_price) * 100) %}
             {{ price_percent_to_average | round(0, default=0) }}
           price_above_average: >
             {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
             {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg %}
-            {% set current_price = electricity_price_current(prices) | float %}
+            {% set current_price = electricity_price_current(prices,
+              span = span) | float %}
             {% set avg_price = electricity_price_avg(prices) | float %}
             {{ current_price > avg_price }}
           price_level: >
             {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
             {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg %}
-            {% set current_price = electricity_price_current(prices) | float %}
+            {% set current_price = electricity_price_current(prices,
+              span = span) | float %}
             {% set avg_price = electricity_price_avg(prices) | float %}
             {% set price_percent_to_average = ((current_price / avg_price) * 100) %}
             {#
@@ -144,13 +154,17 @@ template:
             {% endif %}
           today: >
             {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
             {% from 'electricity_price.jinja' import electricity_price_format %}
             {{ electricity_price_format(prices,
+              span = span,
               as_list = true) }}
           tomorrow: >
             {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
             {% from 'electricity_price.jinja' import electricity_price_format %}
             {{ electricity_price_format(prices,
+              span = span,
               date = now().date() + timedelta(days=1),
               as_list = true) }}
           tomorrow_avg_price: >
@@ -161,8 +175,10 @@ template:
             {{ avg_price }}
           prices: >
             {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
             {% from 'electricity_price.jinja' import electricity_price_format %}
             {{ electricity_price_format(prices,
+              span = span,
               date = none) }}
 
   - binary_sensor:

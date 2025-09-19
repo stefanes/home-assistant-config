@@ -9,7 +9,7 @@
     divider = 1,
     add_vat = false,
     additional_cost = 0,
-    hourly_pricing = true,
+    span = 1,
     price_attribute = 'price',
     time_attribute = 'start_time',
     __is_nord_pool__ = false) %}
@@ -19,7 +19,6 @@
         {% set divider = 1000 %}
         {% set add_vat = true %}
         {% set additional_cost = states('sensor.nord_pool_additional_cost') | float %}
-        {% set hourly_pricing = state_attr('sensor.nord_pool_price_api', 'hourly_pricing') | bool %}
         {% set time_attribute = 'start' %}
     {% endif %}
 
@@ -41,12 +40,8 @@
     {% endfor %}
 
     {# output result #}
-    {% if hourly_pricing %}
-        {{ ns.prices[ns.index] }}
-    {% else %}
-        {% set start_index = ns.index * 4 %}
-        {{ ns.prices[start_index:start_index + 4] | sum / 4 }}
-    {% endif %}
+    {% set start_index = ns.index * span %}
+    {{ ns.prices[start_index:start_index + span] | sum / span }}
 
 {% endmacro %}
 
@@ -54,7 +49,6 @@
     divider = 1,
     add_vat = false,
     additional_cost = 0,
-    hourly_pricing = true,
     price_attribute = 'price',
     time_attribute = 'start_time',
     date = now().date(),
@@ -65,7 +59,6 @@
         {% set divider = 1000 %}
         {% set add_vat = true %}
         {% set additional_cost = states('sensor.nord_pool_additional_cost') | float %}
-        {% set hourly_pricing = state_attr('sensor.nord_pool_price_api', 'hourly_pricing') | bool %}
         {% set time_attribute = 'start' %}
     {% endif %}
 
@@ -97,7 +90,7 @@
     divider = 1,
     add_vat = false,
     additional_cost = 0,
-    hourly_pricing = true,
+    span = 1,
     price_attribute = 'price',
     time_attribute = 'start_time',
     date = now().date(),
@@ -110,7 +103,6 @@
         {% set divider = 1000 %}
         {% set add_vat = true %}
         {% set additional_cost = states('sensor.nord_pool_additional_cost') | float %}
-        {% set hourly_pricing = state_attr('sensor.nord_pool_price_api', 'hourly_pricing') | bool %}
         {% set time_attribute = 'start' %}
     {% endif %}
 
@@ -135,18 +127,14 @@
     {% endfor %}
 
     {# output result #}
-    {% if hourly_pricing %}
-        {{ ns.prices }}
-    {% else %}
-        {% for i in range(0, ns.prices | length, 4) %}
-            {% if as_list %}
-                {% set ns.avg_prices = ns.avg_prices + [(ns.prices[i:i + 4] | sum / 4) | round(3, default=0)] %}
-            {% else %}
-                {% set ns.avg_prices = ns.avg_prices + [{'start_time': ns.prices[i].start_time, 'price': (ns.prices[i:i + 4] | map(attribute='price') | sum / 4 ) | round(3, default=0)}] %}
-            {% endif %}
-        {% endfor %}
-        {{ ns.avg_prices }}
-    {% endif %}
+    {% for i in range(0, ns.prices | length, span) %}
+        {% if as_list %}
+            {% set ns.avg_prices = ns.avg_prices + [(ns.prices[i:i + span] | sum / span) | round(3, default=0)] %}
+        {% else %}
+            {% set ns.avg_prices = ns.avg_prices + [{'start_time': ns.prices[i].start_time, 'price': (ns.prices[i:i + span] | map(attribute='price') | sum / span ) | round(3, default=0)}] %}
+        {% endif %}
+    {% endfor %}
+    {{ ns.avg_prices }}
 
 {% endmacro %}
 
