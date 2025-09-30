@@ -8,8 +8,10 @@ rest:
     headers:
       content_type: "application/json"
     params:
-      id: "123456789"
-      direction: "987654321"
+      # TODO: Enter work stop Id
+      id: "987654321"
+      # TODO: Enter home stop Id
+      direction: "123456789"
       duration: "120"
       format: "json"
       accessId: !secret trafiklab_access_token
@@ -38,8 +40,10 @@ rest:
     headers:
       content_type: "application/json"
     params:
-      id: "740012589"
-      direction: "740074179"
+      # TODO: Enter home stop Id
+      id: "123456789"
+      # TODO: Enter work stop Id
+      direction: "987654321"
       duration: "120"
       format: "json"
       accessId: !secret trafiklab_access_token

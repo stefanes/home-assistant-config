@@ -46,6 +46,19 @@ template:
         to: "on"
         from: "off"
         id: "price_api_status"
+      # temporary trigger to handle switch to 15 min pricing
+      - trigger: template
+        value_template: >
+          {% if has_value('sensor.nord_pool_price_api')
+            and is_state('binary_sensor.nord_pool_price_api_status', 'on') %}
+            {% set index = state_attr('sensor.nord_pool_price', 'current_price_index') %}
+            {% set interval = state_attr('sensor.nord_pool_price_api', 'interval') %}
+            {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
+            {% set current_interval = (prices[index + 1].start | as_datetime(now().min|as_local)
+              - prices[index].start | as_datetime(now().min|as_local)).total_seconds() | int %}
+            {{ not interval == current_interval }}
+          {% endif %}
+        id: "price_interval_change"
     # only trigger on 'time_pattern' after 13 (until we have tomorrow's prices)
     conditions: >
       {{ (trigger.id == 'time_pattern'
@@ -152,33 +165,13 @@ template:
           price_level: >
             {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}
-            {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg %}
+            {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg, electricity_price_level %}
             {% set current_price = electricity_price_current(prices,
               span = span,
               __is_nord_pool__ = true) | float %}
             {% set avg_price = electricity_price_avg(prices,
               __is_nord_pool__ = true) | float %}
-            {% set price_percent_to_average = ((current_price / avg_price) * 100) %}
-            {#
-              VERY_CHEAP - The price is smaller or equal to 60 % compared to average price
-              CHEAP - The price is greater than 60 % and less or equal to 90 % compared to average price
-              NORMAL - The price is greater than 90 % and less than 115 % compared to average price
-              EXPENSIVE - The price is greater or equal to 115 % and less than 140 % compared to average price
-              VERY_EXPENSIVE - The price is greater or equal to 140 % compared to average price
-            #}
-            {% if price_percent_to_average <= 60 %}
-              VERY_CHEAP
-            {% elif price_percent_to_average > 60 and price_percent_to_average <= 90 %}
-              CHEAP
-            {% elif price_percent_to_average > 90 and price_percent_to_average < 115 %}
-              NORMAL
-            {% elif price_percent_to_average >= 115 and price_percent_to_average < 140 %}
-              EXPENSIVE
-            {% elif price_percent_to_average >= 140 %}
-              VERY_EXPENSIVE
-            {% else %}
-              UNKNOWN
-            {% endif %}
+            {{ electricity_price_level(current_price, avg_price) }}
           today: >
             {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}
@@ -211,6 +204,15 @@ template:
               span = span,
               date = none,
               __is_nord_pool__ = true) }}
+          current_price_index: >
+            {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
+            {% for i in prices %}
+                {% set time = i.start | as_datetime | as_local %}
+                {% if time == today_at(now().strftime("%H:00")) %}
+                  {{ loop.index0 }}
+                  {% break %}
+                {% endif %}
+            {% endfor %}
 
   - sensor:
       - name: Nord Pool additional cost
@@ -273,15 +275,6 @@ template:
           tomorrows_prices_available: >
             {% set end = state_attr('sensor.nord_pool_price_api', 'end') | as_datetime(now().min|as_local) %}
             {{ end == today_at() + timedelta(days=2) }}
-          current_price_index: >
-            {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
-            {% for i in prices %}
-                {% set time = i.start | as_datetime | as_local %}
-                {% if time == today_at(now().strftime("%H:00")) %}
-                  {{ loop.index0 }}
-                  {% break %}
-                {% endif %}
-            {% endfor %}
           nord_pool_price_api_start: "{{ state_attr('sensor.nord_pool_price_api', 'start') }}"
           nord_pool_price_api_end: "{{ state_attr('sensor.nord_pool_price_api', 'end') }}"
 

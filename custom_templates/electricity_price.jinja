@@ -138,6 +138,33 @@
 
 {% endmacro %}
 
+{% macro electricity_price_level(current_price, avg_price) %}
+
+    {# get prices level for current price #}
+    {% set price_percent_to_average = ((current_price / avg_price) * 100) %}
+    {#
+        VERY_CHEAP - The price is smaller or equal to 60 % compared to average price
+        CHEAP - The price is greater than 60 % and less or equal to 90 % compared to average price
+        NORMAL - The price is greater than 90 % and less than 115 % compared to average price
+        EXPENSIVE - The price is greater or equal to 115 % and less than 140 % compared to average price
+        VERY_EXPENSIVE - The price is greater or equal to 140 % compared to average price
+    #}
+    {% if price_percent_to_average <= 60 %}
+        VERY_CHEAP
+    {% elif price_percent_to_average > 60 and price_percent_to_average <= 90 %}
+        CHEAP
+    {% elif price_percent_to_average > 90 and price_percent_to_average < 115 %}
+        NORMAL
+    {% elif price_percent_to_average >= 115 and price_percent_to_average < 140 %}
+        EXPENSIVE
+    {% elif price_percent_to_average >= 140 %}
+        VERY_EXPENSIVE
+    {% else %}
+        UNKNOWN
+    {% endif %}
+
+{% endmacro %}
+
 {#
     'prices' format:
         [{'start_time': '2025-08-29T00:00:00.000+02:00', 'price': 1.25},

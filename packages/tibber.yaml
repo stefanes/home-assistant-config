@@ -127,31 +127,11 @@ template:
           price_level: >
             {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
-            {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg %}
+            {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg, electricity_price_level %}
             {% set current_price = electricity_price_current(prices,
               span = span) | float %}
             {% set avg_price = electricity_price_avg(prices) | float %}
-            {% set price_percent_to_average = ((current_price / avg_price) * 100) %}
-            {#
-              VERY_CHEAP - The price is smaller or equal to 60 % compared to average price
-              CHEAP - The price is greater than 60 % and less or equal to 90 % compared to average price
-              NORMAL - The price is greater than 90 % and less than 115 % compared to average price
-              EXPENSIVE - The price is greater or equal to 115 % and less than 140 % compared to average price
-              VERY_EXPENSIVE - The price is greater or equal to 140 % compared to average price
-            #}
-            {% if price_percent_to_average <= 60 %}
-              VERY_CHEAP
-            {% elif price_percent_to_average > 60 and price_percent_to_average <= 90 %}
-              CHEAP
-            {% elif price_percent_to_average > 90 and price_percent_to_average < 115 %}
-              NORMAL
-            {% elif price_percent_to_average >= 115 and price_percent_to_average < 140 %}
-              EXPENSIVE
-            {% elif price_percent_to_average >= 140 %}
-              VERY_EXPENSIVE
-            {% else %}
-              UNKNOWN
-            {% endif %}
+            {{ electricity_price_level(current_price, avg_price) }}
           today: >
             {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
@@ -180,6 +160,15 @@ template:
             {{ electricity_price_format(prices,
               span = span,
               date = none) }}
+          current_price_index: >
+            {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
+            {% for i in prices %}
+                {% set time = i.start_time | as_datetime | as_local %}
+                {% if time == today_at(now().strftime("%H:00")) %}
+                  {{ loop.index0 }}
+                  {% break %}
+                {% endif %}
+            {% endfor %}
 
   - binary_sensor:
       - name: Tibber price API status
@@ -196,15 +185,6 @@ template:
           tomorrows_prices_available: >
             {% set end = state_attr('sensor.tibber_price_api', 'end') | as_datetime(now().min|as_local) %}
             {{ end == today_at() + timedelta(days=2) }}
-          current_price_index: >
-            {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
-            {% for i in prices %}
-                {% set time = i.start_time | as_datetime | as_local %}
-                {% if time == today_at(now().strftime("%H:00")) %}
-                  {{ loop.index0 }}
-                  {% break %}
-                {% endif %}
-            {% endfor %}
           tibber_price_api_start: "{{ state_attr('sensor.tibber_price_api', 'start') }}"
           tibber_price_api_end: "{{ state_attr('sensor.tibber_price_api', 'end') }}"
 
