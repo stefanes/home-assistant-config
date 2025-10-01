@@ -49,11 +49,10 @@ template:
       # temporary trigger to handle switch to 15 min pricing
       - trigger: template
         value_template: >
-          {% if has_value('sensor.nord_pool_price_api')
-            and is_state('binary_sensor.nord_pool_price_api_status', 'on') %}
+          {% if is_state('binary_sensor.nord_pool_price_api_status', 'on') %}
             {% set interval = state_attr('sensor.nord_pool_price_api', 'interval') %}
             {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
-            {% set index = state_attr('sensor.nord_pool_price', 'current_price_api_index') %}
+            {% set index = state_attr('sensor.nord_pool_price', 'current_price_api_index') | int(0) %}
             {% set current_interval = (prices[index + 1].start | as_datetime(now().min|as_local)
               - prices[index].start | as_datetime(now().min|as_local)).total_seconds() | int %}
             {{ not interval == current_interval }}
