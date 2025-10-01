@@ -53,7 +53,7 @@ template:
             and is_state('binary_sensor.nord_pool_price_api_status', 'on') %}
             {% set interval = state_attr('sensor.nord_pool_price_api', 'interval') %}
             {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
-            {% set index = state_attr('sensor.nord_pool_price', 'current_price_index') %}
+            {% set index = state_attr('sensor.nord_pool_price', 'current_price_api_index') %}
             {% set current_interval = (prices[index + 1].start | as_datetime(now().min|as_local)
               - prices[index].start | as_datetime(now().min|as_local)).total_seconds() | int %}
             {{ not interval == current_interval }}
@@ -116,7 +116,7 @@ template:
       {{ is_state('binary_sensor.nord_pool_price_api_status', 'on') }}
     sensor:
       - name: Nord Pool price
-        state: >
+        state: &current_price >
           {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
           {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}
           {% from 'electricity_price.jinja' import electricity_price_current %}
@@ -175,16 +175,16 @@ template:
           today: >
             {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}
-            {% from 'electricity_price.jinja' import electricity_price_format %}
-            {{ electricity_price_format(prices,
+            {% from 'electricity_price.jinja' import electricity_price_transform %}
+            {{ electricity_price_transform(prices,
               span = span,
               as_list = true,
               __is_nord_pool__ = true) }}
           tomorrow: >
             {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}
-            {% from 'electricity_price.jinja' import electricity_price_format %}
-            {{ electricity_price_format(prices,
+            {% from 'electricity_price.jinja' import electricity_price_transform %}
+            {{ electricity_price_transform(prices,
               span = span,
               date = now().date() + timedelta(days=1),
               as_list = true,
@@ -199,12 +199,12 @@ template:
           prices: >
             {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}
-            {% from 'electricity_price.jinja' import electricity_price_format %}
-            {{ electricity_price_format(prices,
+            {% from 'electricity_price.jinja' import electricity_price_transform %}
+            {{ electricity_price_transform(prices,
               span = span,
               date = none,
               __is_nord_pool__ = true) }}
-          current_price_index: >
+          current_price_api_index: >
             {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
             {% for i in prices %}
                 {% set time = i.start | as_datetime | as_local %}
@@ -213,6 +213,16 @@ template:
                   {% break %}
                 {% endif %}
             {% endfor %}
+          current_price: *current_price
+          current_price_spot: >
+            {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
+            {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}
+            {% from 'electricity_price.jinja' import electricity_price_current %}
+            {% set current_price = electricity_price_current(prices,
+              span = span,
+              divider = 1000,
+              time_attribute = 'start') %}
+            {{ current_price }}
 
   - sensor:
       - name: Nord Pool additional cost
@@ -232,12 +242,12 @@ template:
               else additional_cost %}
 
             {% if has_value('sensor.electricity_price')
-              and has_value('sensor.nord_pool_se4_current_price')
-              and (states.sensor.nord_pool_se4_current_price.last_updated | as_local).hour
-                == (states.sensor.electricity_price.last_updated | as_local).hour %}
+              and has_value('sensor.nord_pool_price')
+              and (states.sensor.electricity_price.last_updated | as_local).hour
+                == (states.sensor.nord_pool_price.last_updated | as_local).hour %}
               {% set vat = 1 + (states('input_number.electricity_price_vat') | int * 0.01) %}
               {% set additional_cost = states('sensor.electricity_price') | float
-                - states('sensor.nord_pool_se4_current_price') | float * vat %}
+                - state_attr('sensor.nord_pool_price', 'current_price_spot') | float * vat %}
             {% endif %}
           {% endif %}
 
@@ -252,12 +262,9 @@ template:
           electricity_price_sensor: "{{ states('input_select.electricity_price_sensor') }}"
           electricity_price: "{{ states('sensor.electricity_price') }}"
           electricity_price_last_updated: "{{ states.sensor.electricity_price.last_updated | as_local }}"
-          nord_pool_se4_current_price: >
-            {% if has_value('sensor.nord_pool_se4_current_price') %}
-              {% set vat = 1 + (states('input_number.electricity_price_vat') | int * 0.01) %}
-              {{ (states('sensor.nord_pool_se4_current_price') | float * vat) | round(3, default=0) }}
-            {% endif %}
-          nord_pool_se4_current_price_last_updated: "{{ states.sensor.nord_pool_se4_current_price.last_updated | as_local }}"
+          nord_pool_price: "{{ states('sensor.nord_pool_price') }}"
+          nord_pool_price_spot: "{{ state_attr('sensor.nord_pool_price', 'current_price_spot') }}"
+          nord_pool_price_last_updated: "{{ states.sensor.nord_pool_price.last_updated | as_local }}"
           nord_pool_additional_cost: "{{ (states('input_number.nord_pool_additional_cost') | float * 0.01) | round(3, default=0) }}"
 
   - binary_sensor:

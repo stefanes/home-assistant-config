@@ -36,12 +36,11 @@
             {% set ns.index = loop.index0 %}
         {% endif %}
         {% set price = i[price_attribute] / divider * vat + additional_cost %}
-        {% set ns.prices = ns.prices + [price | round(3, default=0)] %}
+        {% set ns.prices = ns.prices + [price] %}
     {% endfor %}
 
     {# output result #}
-    {% set start_index = ns.index * span %}
-    {{ ns.prices[start_index:start_index + span] | sum / span }}
+    {{ (ns.prices[ns.index:ns.index + span] | sum / span) | round(3, default=0) }}
 
 {% endmacro %}
 
@@ -86,7 +85,7 @@
 
 {% endmacro %}
 
-{% macro electricity_price_format(prices,
+{% macro electricity_price_transform(prices,
     divider = 1,
     add_vat = false,
     additional_cost = 0,
@@ -119,9 +118,9 @@
         {% if date is none or time.date() == date %}
             {% set price = i[price_attribute] / divider * vat + additional_cost %}
             {% if as_list %}
-                {% set ns.prices = ns.prices + [price | round(3, default=0)] %}
+                {% set ns.prices = ns.prices + [price] %}
             {% else %}
-                {% set ns.prices = ns.prices + [{'start_time': time.isoformat(), 'price': price | round(3, default=0)}] %}
+                {% set ns.prices = ns.prices + [{'start_time': time.isoformat(), 'price': price}] %}
             {% endif %}
         {% endif %}
     {% endfor %}

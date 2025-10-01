@@ -85,7 +85,7 @@ template:
       {{ is_state('binary_sensor.tibber_price_api_status', 'on') }}
     sensor:
       - name: Tibber price
-        state: >
+        state: &current_price >
           {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
           {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
           {% from 'electricity_price.jinja' import electricity_price_current %}
@@ -135,15 +135,15 @@ template:
           today: >
             {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
-            {% from 'electricity_price.jinja' import electricity_price_format %}
-            {{ electricity_price_format(prices,
+            {% from 'electricity_price.jinja' import electricity_price_transform %}
+            {{ electricity_price_transform(prices,
               span = span,
               as_list = true) }}
           tomorrow: >
             {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
-            {% from 'electricity_price.jinja' import electricity_price_format %}
-            {{ electricity_price_format(prices,
+            {% from 'electricity_price.jinja' import electricity_price_transform %}
+            {{ electricity_price_transform(prices,
               span = span,
               date = now().date() + timedelta(days=1),
               as_list = true) }}
@@ -156,11 +156,11 @@ template:
           prices: >
             {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.tibber_price_api', 'interval')) | int %}
-            {% from 'electricity_price.jinja' import electricity_price_format %}
-            {{ electricity_price_format(prices,
+            {% from 'electricity_price.jinja' import electricity_price_transform %}
+            {{ electricity_price_transform(prices,
               span = span,
               date = none) }}
-          current_price_index: >
+          current_price_api_index: >
             {% set prices = state_attr('sensor.tibber_price_api', 'prices') %}
             {% for i in prices %}
                 {% set time = i.start_time | as_datetime | as_local %}
@@ -169,6 +169,7 @@ template:
                   {% break %}
                 {% endif %}
             {% endfor %}
+          current_price: *current_price
 
   - binary_sensor:
       - name: Tibber price API status

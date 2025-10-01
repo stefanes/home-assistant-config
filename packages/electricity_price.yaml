@@ -94,9 +94,12 @@ template:
           prices: >
             {% set sensor = states('input_select.electricity_price_sensor') %}
             {{ state_attr(sensor, 'prices') }}
-          current_price_index: >
+          current_price_api_index: >
             {% set sensor = states('input_select.electricity_price_sensor') %}
-            {{ state_attr(sensor, 'current_price_index') }}
+            {{ state_attr(sensor, 'current_price_api_index') }}
+          current_price: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'current_price') }}
 
       - name: Electricity price threshold
         state: >
