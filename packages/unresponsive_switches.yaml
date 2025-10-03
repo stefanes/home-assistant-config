@@ -2,13 +2,13 @@ switch:
   - platform: group # one group with the “All entities” option off...
     name: Outdoor lights
     unique_id: outdoor_lights
-    entities: &outdoor_lights_entities
-      - switch.smart_plug_outdoors_1
-      - ...
+    entities: &light_entities
+      # Smart plug shed #1 (window)
+      - switch.smart_plug_shed_1
   - platform: group # ...and one with it on
     name: Outdoor lights (all)
     unique_id: outdoor_lights_all
-    entities: *outdoor_lights_entities
+    entities: *light_entities
     all: true
 
 template:
@@ -24,27 +24,25 @@ automation:
   - id: outdoor_lights_problem
     alias: Outdoor lights problem detected
     description: ""
-    trigger:
-      - platform: state
-        entity_id:
-          - binary_sensor.outdoor_lights_problem
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.outdoor_lights_problem
         to: "on"
         from: "off"
-    action:
+    actions:
       - repeat:
           until:
             - condition: state
               entity_id: binary_sensor.outdoor_lights_problem
               state: "off"
           sequence:
-            - service: automation.trigger
+            - action: automation.trigger
               data:
                 skip_condition: false
               target:
                 entity_id:
                   - automation.outdoor_lights
-            - delay:
-                minutes: 2
+            - wait_template: >-
+                {{ is_state('binary_sensor.outdoor_lights_problem', 'off') }}
+              timeout: "00:04:00"
     mode: restart
-    trace:
-      stored_traces: 20

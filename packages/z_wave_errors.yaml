@@ -82,7 +82,6 @@ script:
         target:
           entity_id:
             - automation.outdoor_lights
-            - ...
     mode: queued
 
 automation:
@@ -202,6 +201,8 @@ automation:
         data:
           addon: a0d7b954_zwavejs2mqtt
     mode: single
+    trace:
+      stored_traces: 20
 
   - id: z_wave_addon_startup
     alias: Z-Wave addon start-up
@@ -218,3 +219,5 @@ automation:
     actions:
       - action: script.trigger_all_z_wave_automations
     mode: single
+    trace:
+      stored_traces: 20
