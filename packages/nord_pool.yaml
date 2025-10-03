@@ -119,7 +119,7 @@ template:
           {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
           {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}
           {% from 'electricity_price.jinja' import electricity_price_current %}
-          {# returned price is in SEK/MWh, without VAT or added costs #}
+          {# returned price is per MWh, without VAT or added costs #}
           {% set current_price = electricity_price_current(prices,
             span = span,
             __is_nord_pool__ = true) %}
