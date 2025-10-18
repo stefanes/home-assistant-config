@@ -1,0 +1,23 @@
+send_graphite_metricpoint:
+  url: !secret graphite_metrics_url
+  method: POST
+  headers:
+    authorization: !secret graphite_auth_header
+  payload: >-
+    [
+      {
+        "time": {{ as_timestamp(utcnow()) | int }},
+        "name": "hass.{{ state_attr('zone.home', 'friendly_name') | lower | replace(' ', '-') }}.{{ name }}",
+        "interval": {{ interval }},
+        "value": {{ value | float(-1) }}
+      }
+    ]
+  content_type: "application/json"
+
+send_graphite_metricpoints:
+  url: !secret graphite_metrics_url
+  method: POST
+  headers:
+    authorization: !secret graphite_auth_header
+  payload: "{{ payload }}"
+  content_type: "application/json"

@@ -1,0 +1,23 @@
+send_loki_logentry:
+  url: !secret loki_push_url
+  method: POST
+  headers:
+    authorization: !secret loki_auth_header
+  payload: >-
+    {
+      "streams": [
+        {
+          "values": [
+            [
+              "{{ as_timestamp(utcnow()) | int }}000000000",
+              "{{ value }}"
+            ]
+          ],
+          "stream": {
+            "hass": "{{ name }}"
+            "site": "{{ state_attr('zone.home', 'friendly_name') | lower | replace(' ', '-') }}"
+          }
+        }
+      ]
+    }
+  content_type: "application/json"

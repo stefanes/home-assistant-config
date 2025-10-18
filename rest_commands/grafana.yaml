@@ -1,0 +1,16 @@
+annotate_grafana_visualizations:
+  url: !secret grafana_annotations_url
+  method: POST
+  headers:
+    authorization: !secret grafana_auth_header
+  payload: >-
+    {
+      "dashboardUID": "{{ dashboard | default('') }}",
+      "panelId": {{ panel | default(0) }},
+      "isRegion": {{ iif(time is defined, 'false', 'true') }},
+      "time": {{ iif(time is defined, time, from) | default(utcnow()) | as_timestamp | int }}000,
+      "timeEnd": {{ iif(time is defined, time, to) | default(utcnow()) | as_timestamp | int }}000,
+      "tags": {{ (tags | list + ["home-assistant"]) | replace("'", '"') }},
+      "text": "{{ text | default('Annotation') }}"
+    }
+  content_type: "application/json"
