@@ -100,6 +100,14 @@ template:
           current_price: >
             {% set sensor = states('input_select.electricity_price_sensor') %}
             {{ state_attr(sensor, 'current_price') }}
+          # attribute added for compatibility with HA Price Timeline Card (https://github.com/Neisi/ha-price-timeline-card)
+          data: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {% set prices = state_attr(sensor, 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_transform %}
+            {{ electricity_price_transform(prices,
+              date = none,
+              __price_attribute = 'price_per_kwh') }}
 
       - name: Electricity price threshold
         state: >

@@ -3,7 +3,7 @@
 
 #region Tibber
 # docs: https://www.home-assistant.io/integrations/tibber
-# device: [device_id]                                                   <-- TODO: replace all occurrences with your device id (see README.md)
+# device: {device_id}                                                   <-- TODO: replace all occurrences with your device id (see README.md)
 # sensor: sensor.electricity_price_tibber
 # setup:
 #   Tibber ┬-[schedule]--> tibber_price_api -┬-[schedule]--> tibber_price -┬--> tibber_price_cheap
@@ -266,7 +266,7 @@ automation:
             - action: homeassistant.reload_config_entry
               target:
                 device_id:
-                  - [device_id]
+                  - {device_id}
             - wait_template: >-
                 {{ is_state('binary_sensor.tibber_unavailable', 'off') }}
               timeout: "00:04:00"

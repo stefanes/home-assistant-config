@@ -3,9 +3,9 @@
 
 #region Nord Pool
 # docs: https://www.home-assistant.io/integrations/nordpool
-# device: [device_id]                                                   <-- TODO: replace all occurrences with your device id (see README.md)
-# sensor: sensor.nord_pool_se4_current_price                            <-- TODO: replace all occurrences with name of your sensor for your area
-# config_entry: [config_entry_id]                                       <-- TODO: replace all occurrences with your config entry id (see README.md)
+# device: {device_id}                                                   <-- TODO: replace all occurrences with your device id (see README.md)
+# sensor: sensor.nord_pool_{area}_current_price                         <-- TODO: replace with name of sensor for your area
+# config_entry: {config_entry_id}                                       <-- TODO: replace all occurrences with your config entry id (see README.md)
 # setup:
 #   Electricity price -┬-------------> nord_pool_additional_cost --------┐
 #                      |                                                 |
@@ -65,39 +65,42 @@ template:
               and 13 <= now().hour <= 23 )
           or trigger.id != 'time_pattern' }}
     action:
+      # TODO: replace '{config_entry_id}' and '{area}' variables with your config entry id and area
+      - variables:
+          config_entry: "{config_entry_id}"
+          area: "{area}"
       - action: nordpool.get_prices_for_date
         data:
-          config_entry: [config_entry_id]
+          config_entry: "{{ config_entry }}"
           date: "{{ now().date() }}"
         response_variable: today_prices
       - action: nordpool.get_prices_for_date
         data:
-          config_entry: [config_entry_id]
+          config_entry: "{{ config_entry }}"
           date: "{{ now().date() + timedelta(days=1) }}"
         response_variable: tomorrow_prices
     sensor:
-      # TODO: replace all occurrences of 'SE4' below with name of your area
       - name: Nord Pool price API
         state: &start >
-          {{ (today_prices.SE4[0].start | as_datetime(now().min|as_local)).isoformat() }}
+          {{ (today_prices[area][0].start | as_datetime(now().min|as_local)).isoformat() }}
         device_class: timestamp
         unique_id: nord_pool_price_api
         icon: mdi:api
         availability: >
-          {{ today_prices is mapping and today_prices.SE4 | length > 0 }}
+          {{ today_prices is mapping and today_prices[area] | length > 0 }}
         attributes:
           sensor_updated_by: >
             {{ trigger.id | replace('_', ' ') | title }} at {{ now().strftime('%H:%M:%S') }}
           start: *start
           end: >
-            {% set prices = today_prices.SE4 + tomorrow_prices.SE4 %}
+            {% set prices = today_prices[area] + tomorrow_prices[area] %}
             {{ (prices[-1].end | as_datetime(now().min|as_local)).isoformat() }}
           interval: >
-            {% set prices = today_prices.SE4 %}
+            {% set prices = today_prices[area] %}
             {{ (prices[1].start | as_datetime(now().min|as_local)
               - prices[0].start | as_datetime(now().min|as_local)).total_seconds() | int }}
           prices: >
-            {{ today_prices.SE4 + tomorrow_prices.SE4 }}
+            {{ today_prices[area] + tomorrow_prices[area] }}
 
   - trigger:
       - trigger: time_pattern
@@ -360,7 +363,7 @@ automation:
             - action: homeassistant.reload_config_entry
               target:
                 device_id:
-                  - [device_id]
+                  - {device_id}
             - wait_template: >-
                 {{ is_state('binary_sensor.nord_pool_unavailable', 'off') }}
               timeout: "00:04:00"

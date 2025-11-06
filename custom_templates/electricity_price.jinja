@@ -95,6 +95,8 @@
     date = now().date(),
     raw = false,
     as_list = false,
+    __price_attribute = price_attribute,
+    __time_attribute = time_attribute,
     __is_nord_pool__ = false) %}
 
     {# handle special parameters #}
@@ -130,7 +132,7 @@
         {% if as_list %}
             {% set ns.avg_prices = ns.avg_prices + [(ns.prices[i:i + span] | sum / span) | round(3, default=0)] %}
         {% else %}
-            {% set ns.avg_prices = ns.avg_prices + [{'start_time': ns.prices[i].start_time, 'price': (ns.prices[i:i + span] | map(attribute='price') | sum / span ) | round(3, default=0)}] %}
+            {% set ns.avg_prices = ns.avg_prices + [{__time_attribute: ns.prices[i].start_time, __price_attribute: (ns.prices[i:i + span] | map(attribute='price') | sum / span ) | round(3, default=0)}] %}
         {% endif %}
     {% endfor %}
     {{ ns.avg_prices }}
