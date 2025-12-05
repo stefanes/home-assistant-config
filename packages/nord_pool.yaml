@@ -142,7 +142,7 @@ template:
             {% from 'electricity_price.jinja' import electricity_price_avg %}
             {{ electricity_price_avg(prices,
               __is_nord_pool__ = true) }}
-          price_percent_to_average: >
+          price_pct_to_avg: >
             {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}
             {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg %}
@@ -152,7 +152,7 @@ template:
             {% set avg_price = electricity_price_avg(prices,
               __is_nord_pool__ = true) | float %}
             {{ ((current_price / avg_price) * 100) | round(0, default=0) }}
-          price_above_average: >
+          price_above_avg: >
             {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}
             {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg %}
@@ -195,6 +195,34 @@ template:
             {{ electricity_price_avg(prices,
               date = now().date() + timedelta(days=1),
               __is_nord_pool__ = true) }}
+          tot_avg_price: >
+            {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
+            {% from 'electricity_price.jinja' import electricity_price_avg %}
+            {{ electricity_price_avg(prices,
+              date = none,
+              __is_nord_pool__ = true) }}
+          tot_price_pct_to_avg: >
+            {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
+            {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}
+            {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg %}
+            {% set current_price = electricity_price_current(prices,
+              span = span,
+              __is_nord_pool__ = true) | float %}
+            {% set avg_price = electricity_price_avg(prices,
+              date = none,
+              __is_nord_pool__ = true) | float %}
+            {{ ((current_price / avg_price) * 100) | round(0, default=0) }}
+          tot_price_above_avg: >
+            {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
+            {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}
+            {% from 'electricity_price.jinja' import electricity_price_current, electricity_price_avg %}
+            {% set current_price = electricity_price_current(prices,
+              span = span,
+              __is_nord_pool__ = true) | float %}
+            {% set avg_price = electricity_price_avg(prices,
+              date = none,
+              __is_nord_pool__ = true) | float %}
+            {{ current_price > avg_price }}
           prices: >
             {% set prices = state_attr('sensor.nord_pool_price_api', 'prices') %}
             {% set span = (3600 / state_attr('sensor.nord_pool_price_api', 'interval')) | int %}

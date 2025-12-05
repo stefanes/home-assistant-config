@@ -73,12 +73,12 @@ template:
           avg_price: >
             {% set sensor = states('input_select.electricity_price_sensor') %}
             {{ state_attr(sensor, 'avg_price') }}
-          price_percent_to_average: >
+          price_pct_to_avg: >
             {% set sensor = states('input_select.electricity_price_sensor') %}
-            {{ state_attr(sensor, 'price_percent_to_average') }}
-          price_above_average: >
+            {{ state_attr(sensor, 'price_pct_to_avg') }}
+          price_above_avg: >
             {% set sensor = states('input_select.electricity_price_sensor') %}
-            {{ state_attr(sensor, 'price_above_average') }}
+            {{ state_attr(sensor, 'price_above_avg') }}
           price_level: >
             {% set sensor = states('input_select.electricity_price_sensor') %}
             {{ state_attr(sensor, 'price_level') }}
@@ -91,6 +91,15 @@ template:
           tomorrow_avg_price: >
             {% set sensor = states('input_select.electricity_price_sensor') %}
             {{ state_attr(sensor, 'tomorrow_avg_price') }}
+          tot_avg_price: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'tot_avg_price') }}
+          tot_price_pct_to_avg: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'tot_price_pct_to_avg') }}
+          tot_price_above_avg: >
+            {% set sensor = states('input_select.electricity_price_sensor') %}
+            {{ state_attr(sensor, 'tot_price_above_avg') }}
           prices: >
             {% set sensor = states('input_select.electricity_price_sensor') %}
             {{ state_attr(sensor, 'prices') }}
@@ -157,7 +166,7 @@ template:
       - name: Electricity price above average
         state: >
           {% set sensor = states('input_select.electricity_price_sensor') %}
-          {{ state_attr(sensor, 'price_above_average') | bool }}
+          {{ state_attr(sensor, 'price_above_avg') | bool }}
         delay_on: 0:00:30
         delay_off: 0:00:30
         device_class: power
@@ -171,9 +180,9 @@ template:
           avg_price: >
             {% set sensor = states('input_select.electricity_price_sensor') %}
             {{ state_attr(sensor, 'avg_price') }}
-          price_percent_to_average: >
+          price_pct_to_avg: >
             {% set sensor = states('input_select.electricity_price_sensor') %}
-            {{ state_attr(sensor, 'price_percent_to_average') | round(0) }}%
+            {{ state_attr(sensor, 'price_pct_to_avg') | round(0) }}%
 
       - name: Electricity price cheap
         state: >
