@@ -39,4 +39,4 @@ You can get the `device_id` by navigating to **Settings > Devices & Services > D
 
 ### Config Entry Id
 
-You can get the `config_entry_id` by navigating to **Settings > Devices & Services > Entities**, selecting one of the entities belonging to the integration, selecting **... > Related > Integration** and copying the last part of the URL (`.../config/integrations/integration/<integration>#config_entry=[config_entry_id]`).
+You can get the `config_entry_id` by selecting **Settings > Devices & Services > \[integration\] → ⋮ → Copy entry ID**.
