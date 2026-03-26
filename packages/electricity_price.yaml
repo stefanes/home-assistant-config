@@ -51,6 +51,11 @@ input_select:
       - sensor.nord_pool_price
     icon: mdi:apple-keyboard-option
 
+input_boolean:
+  electricity_grid_tariff_period:
+    name: Electricity grid tariff period
+    icon: mdi:cash-multiple
+
 template:
   - sensor:
       - name: Electricity price
@@ -163,6 +168,77 @@ template:
           away_mode: "{{ states('input_boolean.away_mode') }}"
 
   - binary_sensor:
+      - name: Electricity grid tariff period
+        state: >
+          {% if is_state('input_boolean.electricity_grid_tariff_period', 'off') %}
+            {{ false }}
+          {% else %}
+            {% set month = now().month %}
+            {% set day = now().weekday() %}
+            {% set hour = now().hour %}
+            {{ month in (1, 2, 3, 11, 12)
+              and 0 <= day <= 4
+              and 7 <= hour <= 21 }}
+          {% endif %}
+        device_class: power
+        unique_id: electricity_grid_tariff_period
+        attributes:
+          enabled: >
+            {{ states('input_boolean.electricity_grid_tariff_period') }}
+          month: >
+            {% set month = now().month %}
+            November to Mars: {{ month in (1, 2, 3, 11, 12) }} ({{ month }})
+          day: >
+            {% set day = now().weekday() %}
+            Weekday [0-4]: {{ 0 <= day <= 4 }} ({{ day }})
+          hour: >
+            {% set hour = now().hour %}
+            07:00 to 21:00: {{ 7 <= hour <= 21 }} ({{ now().strftime('%H:%M') }})
+          today_tariff: >
+            {% if is_state('input_boolean.electricity_grid_tariff_period', 'off') %}
+              {{ false }}
+            {% else %}
+              {% set month = now().month %}
+              {% set day = now().weekday() %}
+              {{ month in (1, 2, 3, 11, 12)
+                and 0 <= day <= 4 }}
+            {% endif %}
+          today: >
+            {% if is_state('input_boolean.electricity_grid_tariff_period', 'off') %}
+              []
+            {% else %}
+              {% set month = now().month %}
+              {% set day = now().weekday() %}
+              {% if month in (1, 2, 3, 11, 12)
+                and 0 <= day <= 4 %}
+                {{ range(7, 22) | list }}
+              {% else %}
+                []
+              {% endif %}
+            {% endif %}
+          tomorrow_tariff: >
+            {% if is_state('input_boolean.electricity_grid_tariff_period', 'off') %}
+              {{ false }}
+            {% else %}
+              {% set month = (now() + timedelta(days=1)).month %}
+              {% set day = (now() + timedelta(days=1)).weekday() %}
+              {{ month in (1, 2, 3, 11, 12)
+                and 0 <= day <= 4 }}
+            {% endif %}
+          tomorrow: >
+            {% if is_state('input_boolean.electricity_grid_tariff_period', 'off') %}
+              []
+            {% else %}
+              {% set month = (now() + timedelta(days=1)).month %}
+              {% set day = (now() + timedelta(days=1)).weekday() %}
+              {% if month in (1, 2, 3, 11, 12)
+                and 0 <= day <= 4 %}
+                {{ range(7, 22) | list }}
+              {% else %}
+                []
+              {% endif %}
+            {% endif %}
+
       - name: Electricity price above average
         state: >
           {% set sensor = states('input_select.electricity_price_sensor') %}
@@ -210,6 +286,7 @@ template:
             {{ state_attr('binary_' + sensor + '_cheap', 'tomorrow') }}
           electricity_price_threshold: "{{ states('sensor.electricity_price_threshold') }}"
           electricity_price_cheap_hours: "{{ states('sensor.electricity_price_cheap_hours') }}"
+          electricity_grid_tariff_period: "{{ states('binary_sensor.electricity_grid_tariff_period') }}"
 
       - name: Electricity price expensive
         state: >
@@ -237,3 +314,5 @@ template:
             {{ state_attr('binary_' + sensor + '_expensive', 'tomorrow') }}
           electricity_price_threshold: "{{ states('sensor.electricity_price_threshold') }}"
           electricity_price_expensive_hours: "{{ states('sensor.electricity_price_expensive_hours') }}"
+          electricity_grid_tariff_period: "{{ states('binary_sensor.electricity_grid_tariff_period') }}"
+

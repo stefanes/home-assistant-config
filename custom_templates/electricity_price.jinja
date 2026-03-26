@@ -178,6 +178,7 @@
     cheap = true,
     number_of_hours = none,
     date = now().date(),
+    reserved_hours = [],
     hour = now().hour) %}
 
     {# handle parameters #}
@@ -195,31 +196,49 @@
     {% else  %}
         {% set local_number_of_hours = number_of_hours %}
     {% endif %}
-    {% set ns = namespace(prices=[], hours=[], is_outlier=false) %}
+    {% set local_reserved_hours = iif(reserved_hours is not none, reserved_hours, []) %}
+    {% set ns = namespace(prices=[], hours=[], reserved_hours=[], is_outlier=false) %}
 
-    {# get prices for date #}
+    {# get prices for date and filter #}
     {% if not prices is none %}
         {% for i in prices %}
             {% set time = i.start_time | as_datetime | as_local %}
             {% if date is none or time.date() == date %}
-                {% set ns.prices = ns.prices + [i] %}
+                {% if local_reserved_hours | length > 0 %}
+                    {% if time.hour not in local_reserved_hours %}
+                        {% set ns.prices = ns.prices + [i] %}
+                    {% else %}
+                        {% set ns.reserved_hours = ns.reserved_hours + [i] %}
+                    {% endif %}
+                {% else %}
+                    {% set ns.prices = ns.prices + [i] %}
+                {% endif %}
             {% endif %}
         {% endfor %}
 
         {# select cheapest/most expensive hours #}
-        {% set sorted_hours = ns.prices | sort(attribute='price', reverse=(not cheap)) %}
-        {% for i in range(0, min(sorted_hours | length, local_number_of_hours)) %}
-            {% if cheap
-                or (not cheap
-                    and sorted_hours[i].price > local_price_threshold) %}
-                {% set ns.hours = ns.hours + [sorted_hours[i]] %}
-            {% endif %}
-        {% endfor %}
         {% if cheap %}
+            {% set sorted_hours = ns.prices | sort(attribute='price') %}
+            {% for i in range(0, min(sorted_hours | length, local_number_of_hours)) %}
+                {% set ns.hours = ns.hours + [sorted_hours[i]] %}
+            {% endfor %}
             {# select additional hours below price threshold #}
             {% for i in range(min(sorted_hours | length, local_number_of_hours), ns.prices | length) %}
                 {% if sorted_hours[i].price <= local_price_threshold %}
                     {% set ns.hours = ns.hours + [sorted_hours[i]] %}
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            {% set sorted_hours = (ns.prices + ns.reserved_hours) | sort(attribute='price', reverse=true) %}
+            {% for i in range(0, min(sorted_hours | length, local_number_of_hours)) %}
+                {% if sorted_hours[i].price > local_price_threshold %}
+                    {% set ns.hours = ns.hours + [sorted_hours[i]] %}
+                {% endif %}
+            {% endfor %}
+            {# add all remaining reserved hours #}
+            {% for i in ns.reserved_hours %}
+                {% if i not in ns.hours %}
+                    {% set ns.hours = ns.hours + [i] %}
                 {% endif %}
             {% endfor %}
         {% endif %}
@@ -242,6 +261,7 @@
     cheap = true,
     number_of_hours = none,
     date = now().date(),
+    reserved_hours = [],
     filter = false,
     cents = true,
     for_html = false) %}
@@ -261,38 +281,51 @@
     {% else  %}
         {% set local_number_of_hours = number_of_hours %}
     {% endif %}
-    {% set ns = namespace(prices=[], hours=[]) %}
+    {% set local_reserved_hours = iif(reserved_hours is not none, reserved_hours, []) %}
+    {% set start_hour = iif(filter, now().hour, 0) %}
+    {% set ns = namespace(prices=[], hours=[], reserved_hours=[]) %}
 
-    {# get prices for date #}
+    {# get prices for date and filter #}
     {% if not prices is none %}
         {% for i in prices %}
             {% set time = i.start_time | as_datetime | as_local %}
-            {% if (date is none or time.date() == date) %}
-                {% set ns.prices = ns.prices + [i] %}
+            {% if (date is none or time.date() == date)
+                and time.hour >= start_hour %}
+                {% if local_reserved_hours | length > 0 %}
+                    {% if time.hour not in local_reserved_hours %}
+                        {% set ns.prices = ns.prices + [i] %}
+                    {% else %}
+                        {% set ns.reserved_hours = ns.reserved_hours + [i] %}
+                    {% endif %}
+                {% else %}
+                    {% set ns.prices = ns.prices + [i] %}
+                {% endif %}
             {% endif %}
         {% endfor %}
 
-        {# filter out hours in the past #}
-        {% set start_hour = 0 %}
-        {% if filter %}
-            {% set start_hour = now().hour %}
-        {% endif %}
-
-        {# select hours #}
-        {% set sorted_hours = ns.prices | sort(attribute='price', reverse=(not cheap)) %}
-        {% for i in range(0, min(sorted_hours | length, local_number_of_hours)) %}
-            {% if (sorted_hours[i].start_time | as_datetime | as_local).hour >= start_hour
-                and (cheap
-                    or (not cheap and sorted_hours[i].price > local_price_threshold)) %}
-                {% set ns.hours = ns.hours + [sorted_hours[i]] %}
-            {% endif %}
-        {% endfor %}
+        {# select cheapest/most expensive hours #}
         {% if cheap %}
+            {% set sorted_hours = ns.prices | sort(attribute='price') %}
+            {% for i in range(0, min(sorted_hours | length, local_number_of_hours)) %}
+                {% set ns.hours = ns.hours + [sorted_hours[i]] %}
+            {% endfor %}
             {# select additional hours below price threshold #}
             {% for i in range(min(sorted_hours | length, local_number_of_hours), ns.prices | length) %}
-                {% if (sorted_hours[i].start_time | as_datetime | as_local).hour >= start_hour
-                    and sorted_hours[i].price <= local_price_threshold %}
+                {% if sorted_hours[i].price <= local_price_threshold %}
                     {% set ns.hours = ns.hours + [sorted_hours[i]] %}
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            {% set sorted_hours = (ns.prices + ns.reserved_hours) | sort(attribute='price', reverse=true) %}
+            {% for i in range(0, min(sorted_hours | length, local_number_of_hours)) %}
+                {% if sorted_hours[i].price > local_price_threshold %}
+                    {% set ns.hours = ns.hours + [sorted_hours[i]] %}
+                {% endif %}
+            {% endfor %}
+            {# add all remaining reserved hours #}
+            {% for i in ns.reserved_hours %}
+                {% if i not in ns.hours %}
+                    {% set ns.hours = ns.hours + [i] %}
                 {% endif %}
             {% endfor %}
         {% endif %}
@@ -315,35 +348,33 @@
     min_price = none,
     max_price = none,
     date = now().date(),
+    reserved_hours = [],
     filter = false,
     cents = true,
     for_html = false) %}
 
     {# handle parameters #}
+    {% set local_reserved_hours = iif(reserved_hours is not none, reserved_hours, []) %}
+    {% set start_hour = iif(filter, now().hour, 0) %}
     {% set ns = namespace(prices=[], hours=[]) %}
 
-    {# select hours above/below threashold(s) #}
+    {# select hours above/below threashold(s) and filter #}
     {% if not prices is none %}
         {% for i in prices %}
             {% set time = i.start_time | as_datetime | as_local %}
-            {% if date is none or time.date() == date %}
+            {% if date is none or time.date() == date
+                and time.hour not in local_reserved_hours
+                and time.hour >= start_hour %}
                 {% set ns.prices = ns.prices + [i] %}
             {% endif %}
         {% endfor %}
 
-        {# filter out hours in the past #}
-        {% set start_hour = 0 %}
-        {% if filter %}
-            {% set start_hour = now().hour %}
-        {% endif %}
-
         {# select hours #}
         {% set sorted_hours = ns.prices | sort(attribute='start_time') %}
         {% for i in range(0, ns.prices | length) %}
-            {% if (sorted_hours[i].start_time | as_datetime | as_local).hour >= start_hour
-                and ((  not min_price is none and     max_price is none and min_price <= sorted_hours[i].price)
-                    or (    min_price is none and not max_price is none and sorted_hours[i].price <= max_price)
-                    or (not min_price is none and not max_price is none and min_price <= sorted_hours[i].price <= max_price)) %}
+            {% if ( not min_price is none and     max_price is none and min_price <= sorted_hours[i].price)
+                or (    min_price is none and not max_price is none and sorted_hours[i].price <= max_price)
+                or (not min_price is none and not max_price is none and min_price <= sorted_hours[i].price <= max_price) %}
                 {% set ns.hours = ns.hours + [sorted_hours[i]] %}
             {% endif %}
         {% endfor %}

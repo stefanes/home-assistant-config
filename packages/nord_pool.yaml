@@ -314,8 +314,10 @@ template:
       - name: Nord Pool price cheap
         state: >
           {% set prices = state_attr('sensor.nord_pool_price', 'prices') %}
+          {% set tariff_period = state_attr('binary_sensor.electricity_grid_tariff_period', 'today') %}
           {% from 'electricity_price.jinja' import electricity_price_current_is_outlier %}
-          {{ electricity_price_current_is_outlier(prices) }}
+          {{ electricity_price_current_is_outlier(prices,
+              reserved_hours = tariff_period) }}
         device_class: power
         unique_id: nord_pool_price_cheap
         availability: >
@@ -323,22 +325,29 @@ template:
         attributes:
           today: >
             {% set prices = state_attr('sensor.nord_pool_price', 'prices') %}
-            {% from 'electricity_price.jinja' import electricity_price_outliers %}
-            {{ electricity_price_outliers(prices) }}
-          tomorrow: >
-            {% set prices = state_attr('sensor.nord_pool_price', 'prices') %}
+            {% set tariff_period = state_attr('binary_sensor.electricity_grid_tariff_period', 'today') %}
             {% from 'electricity_price.jinja' import electricity_price_outliers %}
             {{ electricity_price_outliers(prices,
-              date = now().date() + timedelta(days=1)) }}
+              reserved_hours = tariff_period) }}
+          tomorrow: >
+            {% set prices = state_attr('sensor.nord_pool_price', 'prices') %}
+            {% set tariff_period = state_attr('binary_sensor.electricity_grid_tariff_period', 'tomorrow') %}
+            {% from 'electricity_price.jinja' import electricity_price_outliers %}
+            {{ electricity_price_outliers(prices,
+              date = now().date() + timedelta(days=1),
+              reserved_hours = tariff_period) }}
           electricity_price_threshold: "{{ states('sensor.electricity_price_threshold') }}"
           electricity_price_cheap_hours: "{{ states('sensor.electricity_price_cheap_hours') }}"
+          electricity_grid_tariff_period: "{{ states('binary_sensor.electricity_grid_tariff_period') }}"
 
       - name: Nord Pool price expensive
         state: >
           {% set prices = state_attr('sensor.nord_pool_price', 'prices') %}
+          {% set tariff_period = state_attr('binary_sensor.electricity_grid_tariff_period', 'today') %}
           {% from 'electricity_price.jinja' import electricity_price_current_is_outlier %}
           {{ electricity_price_current_is_outlier(prices,
-            cheap = false) }}
+            cheap = false,
+            reserved_hours = tariff_period) }}
         device_class: power
         unique_id: nord_pool_price_expensive
         availability: >
@@ -346,29 +355,34 @@ template:
         attributes:
           today: >
             {% set prices = state_attr('sensor.nord_pool_price', 'prices') %}
-            {% from 'electricity_price.jinja' import electricity_price_outliers %}
-            {{ electricity_price_outliers(prices,
-              cheap = false) }}
-          tomorrow: >
-            {% set prices = state_attr('sensor.nord_pool_price', 'prices') %}
+            {% set tariff_period = state_attr('binary_sensor.electricity_grid_tariff_period', 'today') %}
             {% from 'electricity_price.jinja' import electricity_price_outliers %}
             {{ electricity_price_outliers(prices,
               cheap = false,
-              date = now().date() + timedelta(days=1)) }}
+              reserved_hours = tariff_period) }}
+          tomorrow: >
+            {% set prices = state_attr('sensor.nord_pool_price', 'prices') %}
+            {% set tariff_period = state_attr('binary_sensor.electricity_grid_tariff_period', 'tomorrow') %}
+            {% from 'electricity_price.jinja' import electricity_price_outliers %}
+            {{ electricity_price_outliers(prices,
+              cheap = false,
+              date = now().date() + timedelta(days=1),
+              reserved_hours = tariff_period) }}
           electricity_price_threshold: "{{ states('sensor.electricity_price_threshold') }}"
           electricity_price_expensive_hours: "{{ states('sensor.electricity_price_expensive_hours') }}"
+          electricity_grid_tariff_period: "{{ states('binary_sensor.electricity_grid_tariff_period') }}"
 
       - name: Nord Pool unavailable
         state: >
           {{ not (
-            has_value('sensor.nord_pool_se4_current_price')
+            has_value('sensor.nord_pool_se4_last_updated')
             and has_value('sensor.nord_pool_price_api')
             and is_state('binary_sensor.nord_pool_price_api_status', 'on')) }}
         delay_on: 0:02:00 # turn on if problem persists for 2 minutes
         device_class: problem
         unique_id: nord_pool_unavailable
         attributes:
-          nord_pool_se4_current_price: "{{ states('sensor.nord_pool_se4_current_price') }}"
+          nord_pool_se4_last_updated: "{{ states('sensor.nord_pool_se4_last_updated') }}"
           nord_pool_price_api: "{{ states('sensor.nord_pool_price_api') }}"
           nord_pool_price_api_status: "{{ states('binary_sensor.nord_pool_price_api_status') }}"
 
